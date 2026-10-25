@@ -1,0 +1,84 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Spectral Browser</title><link rel="icon" href="assets/SpecB.png"><link rel="stylesheet" href="assets/style.css"></head><body>
+<header class="hero"><div class="hero-in">
+<img src="assets/SpecB.png" alt="Spectral Browser icon" width="128" height="128">
+<h1>Spectral Browser <span>for Linux</span></h1>
+<p class="tag">A small, privacy-minded web browser for Linux.</p>
+<p>Spectral is a lightweight browser written in Go with GTK 3 and WebKit2GTK 4.1. It blocks about 95,000 tracker and ad hosts, keeps you on HTTPS, asks before sites set cookies, and clears them when you close it. Press F8 to open the Ghost Panel and watch every connection a page makes, live. Version 1.3.3 runs on amd64 (Pop!_OS / Ubuntu 24.04) and arm64 (PineTab2 / Arrow Silver).</p>
+<ul class="hl"><li>Ghost Panel (F8): a live traffic monitor that runs only while open and writes nothing to disk</li><li>Tracker and ad blocking from EasyPrivacy and EasyList</li><li>HTTPS-only mode, with a per-session HTTP fallback</li><li>Per-site cookie consent; all cookies cleared on close by default</li><li>Web process sandboxed with bubblewrap; WebRTC and DNS prefetch off</li></ul>
+<nav><a class="btn" href="#download">Download</a><a href="#features">Features</a><a href="#install">Install guide</a></nav></div></header>
+<main>
+<section><h2>Overview</h2>
+<p>Spectral Browser is a small desktop web browser focused on privacy. Current version: <b>1.3.3</b> (2026-10-25).</p>
+<h3 id="screenshots">Screenshots</h3>
+<figure><img src="assets/screenshot-home.png" alt="Spectral Browser showing the DuckDuckGo start page, a Cookies off toggle and the bookmarks bar" loading="lazy" decoding="async" style="max-width:100%;height:auto"><figcaption>Clean DuckDuckGo start page with the bookmarks bar and the per-site “Cookies off” toggle.</figcaption></figure>
+<figure><img src="assets/screenshot-network-panel.png" alt="Spectral Browser on Google with the Ghost Panel open, flagging third-party requests" loading="lazy" decoding="async" style="max-width:100%;height:auto"><figcaption>Ghost Panel on Google, flagging third-party requests (42 outgoing).</figcaption></figure>
+<figure><img src="assets/screenshot-settings.png" alt="Spectral Browser Settings dialog over DistroWatch, with the Ghost Panel open beside it" loading="lazy" decoding="async" style="max-width:100%;height:auto"><figcaption>Settings (homepage, dark mode, ask where to save, download folder, clear cookies on close), with the Ghost Panel showing active connections and outgoing/incoming requests with blocked counts.</figcaption></figure></section>
+<section><h2>Platform &amp; engine</h2><div class="tw"><table>
+<tr><th>Part</th><th>Details</th></tr>
+<tr><td>amd64</td><td>Pop!_OS 24.04 / Ubuntu 24.04</td></tr>
+<tr><td>arm64</td><td>PineTab2 / Arrow Silver ARM64 (built in a Debian forky arm64 chroot)</td></tr>
+<tr><td>Engine</td><td>WebKit2GTK 4.1 (2.52.6 on Pop 24.04); GTK 3 UI</td></tr>
+<tr><td>Code</td><td>Go 1.22, plus a C WebKit web-process extension (<code>libspectral-ext.so</code>)</td></tr>
+<tr><td>Sandbox</td><td>Web process sandboxed with bubblewrap</td></tr>
+<tr><td>Dependencies</td><td>libc6, libglib2.0-0t64, libgtk-3-0t64, libsoup-3.0-0, libwebkit2gtk-4.1-0, libjavascriptcoregtk-4.1-0, bubblewrap, xdg-dbus-proxy (installed by apt)</td></tr></table></div></section>
+<section id="features"><h2>Features</h2><ul>
+<li><b>Ghost Panel (F8)</b>: open with F8, ☰ → Ghost Panel, or <code>--ghost</code>. A docked traffic monitor listing Active connections, Outgoing (Blocked / Third-party / Allowed / Download) and Incoming. It monitors only while open and writes nothing to disk.</li>
+<li>Tracker and ad blocking: about 95,000 hosts from EasyPrivacy and EasyList</li>
+<li>HTTPS-only mode with a per-session HTTP fallback bar</li>
+<li>Third-party cookies blocked, Intelligent Tracking Prevention on, per-site cookie consent (🛡/🍪), all cookies cleared on close by default</li>
+<li>Google sign-in via the “Allow cookies for Google” bar</li>
+<li>Permission prompts (camera, mic, location, and others) denied unless you allow them; WebRTC and DNS prefetch off</li>
+<li>Private windows and <i>Clear browsing data</i></li>
+<li>Tabbed browsing with full keyboard shortcuts</li>
+<li>Downloads: save dialog, progress bar, Downloads window (Ctrl+Shift+Y), no silent overwrites; save pages as HTML or <code>.mhtml</code></li>
+<li>Editable favorites bar, homepage setting, dark mode (on by default), DuckDuckGo search from the address bar</li>
+<li>Command-line options: <code>--ghost</code>, <code>--debug</code>, <code>--version</code></li></ul>
+<h3>What's new in 1.3.3</h3><ul>
+<li>Fixed: right-click → <i>Open Link in New Tab</i> asked to save the link as a file. Each custom menu item now has its own action.</li>
+<li>Earlier: 1.3.2 (lighter cache, cheaper Ghost Panel refresh); 1.3.1 (Google sign-in fix, cookies cleared on close, Ghost Panel monitors only while open)</li></ul></section>
+<section id="install"><h2>Install guide</h2><ol>
+<li><b>amd64</b> (Pop!_OS / Ubuntu 24.04):<pre>sudo apt install ./spectral-browser_1.3.3_amd64.deb</pre></li>
+<li><b>arm64</b> (for example, PineTab2):<pre>sudo apt install ./spectral-browser_1.3.3_arm64.deb</pre></li></ol>
+<p>This upgrades older versions in place. Uninstall with <code>sudo apt remove spectral-browser</code>. Settings stay in <code>~/.config/spectral-browser/</code>, <code>~/.local/share/spectral-browser/</code> and <code>~/.cache/spectral-browser/</code>.</p>
+<h3>Troubleshooting</h3><ul><li>Blank pages: <code>WEBKIT_DISABLE_COMPOSITING_MODE=1 spectral-browser</code></li><li>See traffic in the terminal: <code>spectral-browser --debug</code></li></ul>
+<h3>Build from source</h3><p>Requires Go 1.22 and the WebKit2GTK 4.1 / GTK 3 development packages. Uses the Makefile:</p>
+<pre>make build    # Go binary + bin/ext/libspectral-ext.so
+make run
+make test
+make deb      # VERSION=1.3.3 ./packaging/build-deb.sh
+sudo VERSION=1.3.3 ./packaging/build-arm64.sh   # arm64 package</pre>
+<!-- TODO: source repo link (Codi). No public repo exists yet. --></section>
+<section id="known-issues"><h2>Known limitations</h2><ul class="issues">
+<li>No fingerprinting protection (WebKitGTK has no setting for it); WebGL is left on</li>
+<li>First-party analytics and unlisted trackers aren't blocked (whole-host rules only)</li>
+<li>Local storage and IndexedDB on sites you haven't allowed aren't purged until close or <i>Clear browsing data</i></li>
+<li>WebKit 2.52 ignores the switch to turn off <code>&lt;a ping&gt;</code>; pings to listed trackers are still blocked</li>
+<li>Private windows don't hide your IP address or DNS lookups</li>
+<li>With clear-on-close on (the default), logins don't survive a restart</li>
+<li>Tabs have no favicons, can't be dragged between windows, and closed tabs can't be reopened</li>
+<li>The download list lasts for the session only; <i>Save page as HTML only</i> downloads the page again (use <code>.mhtml</code> for an exact copy)</li>
+<!-- add new known issues above this line -->
+</ul></section>
+<section id="download"><h2>Download</h2>
+<p class="note">Packages are coming soon as a <b>GitHub Release</b> on this repository.</p>
+<div class="tw"><table><tr><th>File</th><th>Size</th><th>SHA-256</th></tr>
+<tr><td><code>spectral-browser_1.3.3_amd64.deb</code></td><td>2,752,352 bytes (~2.75 MB)</td><td><code class="hash">9b3cc665b2d5f5eafe714b0b15ff5d1bcc2a6cda8031e40c35448638f384dfa7</code></td></tr>
+<tr><td><code>spectral-browser_1.3.3_arm64.deb</code></td><td>2,351,008 bytes (~2.35 MB)</td><td><code class="hash">9e7bf0e754f27853571e6c1bf6b890732ce95fa572576c3948babcfc79e46c0b</code></td></tr></table></div>
+<pre>sha256sum spectral-browser_1.3.3_amd64.deb</pre>
+<h3>Previous versions</h3><div class="tw"><table><tr><th>File</th><th>Size</th><th>SHA-256</th></tr>
+<tr><td><code>spectral-browser_1.3.2_arm64.deb</code></td><td>2,350,104 bytes</td><td><code class="hash">67caacd10f891db9240940a5403e41cf663ae6b7013015c1e2aec7e6b224b71c</code></td></tr>
+<tr><td><code>spectral-browser_1.3.2_amd64.deb</code></td><td>2,751,822 bytes</td><td><code class="hash">8864a5ffbc094f0b6a802e69354f8dd641d2b6beb856312ea9b55f5485b69e3c</code></td></tr>
+<tr><td><code>spectral-browser_1.3.1_amd64.deb</code></td><td>2,750,298 bytes</td><td><code class="hash">550ed9af431327e994e3674c1864a1b157ca1cd530257cac47f599bd069a1a95</code></td></tr>
+<tr><td><code>spectral-browser_1.3.0_amd64.deb</code></td><td>2,744,654 bytes</td><td><code class="hash">ad85bf1aae18d1ff23d75dd010b6c0e9601d04bc92bdea32b7af78902cdfe018</code></td></tr>
+<tr><td><code>spectral-browser_1.2.0_amd64.deb</code></td><td>2,184,068 bytes</td><td><code class="hash">0d66fd228f9cc73af6bbdc1c8bf8aeec9c0e287d8db17ed8bc15db10a12a39bb</code></td></tr>
+<tr><td><code>spectral-browser_1.1.0_amd64.deb</code></td><td>616,560 bytes</td><td><code class="hash">fcf9d00c36523c74c6935b671ba86e6aeb36e93c8a58af113735c0a24c94fae8</code></td></tr></table></div></section>
+<section><h2>License</h2><p>Spectral Browser is free software, Copyright (C) 2026 Philip Orona, licensed under the <a href="LICENSE">GNU GPL v3.0 or later</a>. The bundled EasyList/EasyPrivacy rules are © The EasyList authors, dual-licensed GPLv3 / CC BY-SA 3.0. See <a href="COPYING.md">COPYING.md</a>.</p></section>
+<section><h2>Credits</h2><ul>
+<li>Created by Vm Phil (Philip Orona)</li>
+<li>WebKitGTK / WebKit2GTK 4.1, GTK 3, GLib, libsoup 3, bubblewrap</li>
+<li>Go; <code>golang.org/x/net</code> v0.30.0 (BSD-3-Clause; indirect dependency)</li>
+<!-- TODO(credits): confirm Go/cgo bindings. go.mod lists only golang.org/x/net (indirect); GTK/WebKit appear to be called via cgo directly — verify. -->
+<li>EasyList and EasyPrivacy (<a href="https://easylist.to">easylist.to</a>) for the blocklist</li>
+<li>DuckDuckGo is the default search and homepage (no affiliation)</li></ul></section>
+</main><footer>Spectral Browser · version 1.3.3</footer></body></html>

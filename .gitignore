@@ -1,0 +1,11 @@
+dist/
+bin/
+*.deb
+*.apk
+*.AppImage
+*.o
+*.so
+old-c/spectral_browser
+/spectral-browser
+*.bak*
+.bak-*/
