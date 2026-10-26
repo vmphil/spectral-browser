@@ -6,8 +6,12 @@
 <p class="tag">A small, privacy-minded web browser for Linux.</p>
 <p>Spectral is a lightweight browser written in Go with GTK 3 and WebKit2GTK 4.1. It blocks about 95,000 tracker and ad hosts, keeps you on HTTPS, asks before sites set cookies, and clears them when you close it. Press F8 to open the Ghost Panel and watch every connection a page makes, live. Version 1.3.3 runs on amd64 (Pop!_OS / Ubuntu 24.04) and arm64 (PineTab2 / Arrow Silver).</p>
 <ul class="hl"><li>Ghost Panel (F8): a live traffic monitor that runs only while open and writes nothing to disk</li><li>Tracker and ad blocking from EasyPrivacy and EasyList</li><li>HTTPS-only mode, with a per-session HTTP fallback</li><li>Per-site cookie consent; all cookies cleared on close by default</li><li>Web process sandboxed with bubblewrap; WebRTC and DNS prefetch off</li></ul>
-<nav><a class="btn" href="#download">Download</a><a href="#features">Features</a><a href="#install">Install guide</a></nav></div></header>
+<nav><a class="btn" href="#download">Download</a><a href="#about">About</a><a href="#features">Features</a><a href="#install">Install guide</a></nav></div></header>
 <main>
+<section id="about"><h2>About</h2>
+<p>Spectral Browser is a small, privacy-minded web browser for Linux, written by Philip Orona in Go with a GTK 3 interface and the WebKit2GTK 4.1 engine. It runs on everyday amd64 desktops (Pop!_OS 24.04) and on arm64 devices like the PineTab2, where it comes preinstalled in the Arrow Silver PineTab2 image.</p>
+<p>The idea is simple: block the junk by default and show you what's really happening. Trackers and ads are stopped before they load, pages stay on HTTPS, cookies stay off until you allow them for a site, third-party cookies are always blocked, and everything is wiped when you close the browser. When you're curious, press F8 and the Ghost Panel shows every connection a page makes, live.</p>
+<ul><li>Ghost Panel (F8): a live network monitor that runs only while open</li><li>Tracker and ad blocking (nearly 95,000 hosts from EasyPrivacy and EasyList)</li><li>HTTPS-only browsing</li><li>Per-site cookie toggle, with cookies cleared on close</li><li>Bubblewrap-sandboxed web process; WebRTC and DNS prefetch off</li><li>Simple settings: homepage, dark mode, download folder, ask where to save</li><li>Downloads manager (Ctrl+Shift+Y) and save pages as HTML or complete .mhtml</li><li>Google sign-in bar: one click allows cookies for Google so sign-in works</li><li>Private windows, tabs, favorites bar and DuckDuckGo search</li></ul></section>
 <section><h2>Overview</h2>
 <p>Spectral Browser is a small desktop web browser focused on privacy. Current version: <b>1.3.3</b> (2026-10-25).</p>
 <h3 id="screenshots">Screenshots</h3>
@@ -24,7 +28,7 @@
 <tr><td>Dependencies</td><td>libc6, libglib2.0-0t64, libgtk-3-0t64, libsoup-3.0-0, libwebkit2gtk-4.1-0, libjavascriptcoregtk-4.1-0, bubblewrap, xdg-dbus-proxy (installed by apt)</td></tr></table></div></section>
 <section id="features"><h2>Features</h2><ul>
 <li><b>Ghost Panel (F8)</b>: open with F8, ☰ → Ghost Panel, or <code>--ghost</code>. A docked traffic monitor listing Active connections, Outgoing (Blocked / Third-party / Allowed / Download) and Incoming. It monitors only while open and writes nothing to disk.</li>
-<li>Tracker and ad blocking: about 95,000 hosts from EasyPrivacy and EasyList</li>
+<li>Tracker and ad blocking: nearly 95,000 hosts from EasyPrivacy and EasyList</li>
 <li>HTTPS-only mode with a per-session HTTP fallback bar</li>
 <li>Third-party cookies blocked, Intelligent Tracking Prevention on, per-site cookie consent (🛡/🍪), all cookies cleared on close by default</li>
 <li>Google sign-in via the “Allow cookies for Google” bar</li>
