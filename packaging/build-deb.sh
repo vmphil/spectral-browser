@@ -2,7 +2,7 @@
 # Build spectral-browser .deb without root.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-VER="${VERSION:-1.3.3}"; PKG=spectral-browser; ARCH="${ARCH:-$(dpkg --print-architecture)}"
+VER="${VERSION:-1.3.4}"; PKG=spectral-browser; ARCH="${ARCH:-$(dpkg --print-architecture)}"
 ICON_SRC="${ICON_SRC:-/home/philip/Pictures/SpecB.png}"
 STAGE="dist/stage/${PKG}_${VER}_${ARCH}"
 rm -rf "$STAGE"; mkdir -p "$STAGE/DEBIAN" "$STAGE/usr/bin" "$STAGE/usr/share/applications" \

@@ -1,5 +1,5 @@
 module github.com/philip/spectral-browser
 
-go 1.22.2
+go 1.26.0
 
-require golang.org/x/net v0.30.0 // indirect
+require golang.org/x/net v0.62.0

@@ -3,7 +3,7 @@
 # Debian forky arm64 chroot run through qemu-aarch64 (binfmt).
 #
 #   sudo ./packaging/build-arm64.sh            # version from the Makefile
-#   sudo VERSION=1.3.3 ./packaging/build-arm64.sh
+#   sudo VERSION=1.3.4 ./packaging/build-arm64.sh
 #
 # Needs on the host (once): sudo apt install debootstrap qemu-user-static
 # and a registered qemu-aarch64 binfmt (/proc/sys/fs/binfmt_misc/qemu-aarch64).

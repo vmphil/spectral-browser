@@ -12,7 +12,7 @@ import (
 )
 
 // Version is the release number, shown by --version.
-const Version = "1.3.3"
+const Version = "1.3.4"
 
 func main() {
 	ghost := flag.Bool("ghost", false, "open the Ghost Panel at startup")

@@ -2,6 +2,14 @@
 
 All notable changes to Spectral Browser. Newest first.
 
+## [1.3.4] - 2026-11-02
+
+### Security
+- **Built with Go 1.27.3** (was 1.27.1). Picks up the Go standard library fixes in `net/http`, HTTP/2, `crypto/tls`, `html/template` and `crypto/x509`.
+- **`golang.org/x/net` updated from v0.30.0 to v0.62.0.** Fixes the HTML parser cross-site scripting and denial-of-service advisories and the HTTP/2 advisories.
+- **`govulncheck ./...` now reports no vulnerabilities** (it found 28 reachable ones in 1.3.3).
+- No feature changes.
+
 ## [1.3.3] - 2026-10-25
 
 ### Fixed

@@ -4,9 +4,12 @@ A small, privacy-minded web browser for Linux, written in Go with GTK 3 and WebK
 
 ## Version
 
-**1.3.3** (2026-10-25)
+**1.3.4** (2026-11-02)
 
 ## Changes
+
+### 1.3.4 — 2026-11-02
+- **Security update.** Built with Go 1.27.3 and `golang.org/x/net` v0.62.0 (was Go 1.27.1 and v0.30.0), fixing HTTP/2, TLS, X.509 and HTML parser (XSS) vulnerabilities. `govulncheck` is clean. No feature changes. See CHANGELOG.md.
 
 ### 1.3.3 — 2026-10-25
 - **Open Link in New Tab** opens the page in a new tab again instead of asking to save it as a file.
@@ -167,7 +170,7 @@ To build from source you also need: Go 1.22+, gcc, `pkg-config`, `libgtk-3-dev`,
 ## Install
 
 ```bash
-sudo apt install ./dist/spectral-browser_1.3.3_amd64.deb
+sudo apt install ./dist/spectral-browser_1.3.4_amd64.deb
 ```
 
 This upgrades 1.3.2 (or older) in place. If you have `~/.local/share/applications/spectral-browser.desktop`, delete it so the menu icon opens the installed copy.
@@ -187,7 +190,7 @@ make build      # bin/spectral-browser + bin/ext/libspectral-ext.so
 make run        # build and launch with --debug
 make test vet   # unit tests and go vet
 make blocklist  # refresh the tracker list from easylist.to
-make deb        # dist/spectral-browser_1.3.3_amd64.deb
+make deb        # dist/spectral-browser_1.3.4_amd64.deb
 ```
 
 ## Troubleshooting
