@@ -2,6 +2,12 @@
 
 All notable changes to Spectral Browser. Newest first.
 
+## [Android 1.4.2] - 2026-11-04
+
+### Changed
+- **Library upkeep:** OkHttp 5.5.1, `androidx.webkit` 1.18 and other AndroidX updates; targetSdk 36 (Android 16).
+- **First signed release build.** Earlier 1.4.x APKs were debug builds. **If you installed one, uninstall it first** (`adb uninstall org.spectralbrowser` or from the phone); this clears its tabs and settings.
+
 ## [1.3.4] - 2026-11-02
 
 ### Security

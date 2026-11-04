@@ -71,6 +71,10 @@ sudo VERSION=1.3.4 ./packaging/build-arm64.sh   # arm64 package</pre>
 <tr><td><code>spectral-browser_1.3.4_amd64.deb</code></td><td>2,758,406 bytes (~2.76 MB)</td><td><code class="hash">f8df8744eb6c9552e75c14ef49cef62a34c601d8fdeecc8d07e33bee2a4a2be6</code></td></tr>
 <tr><td><code>spectral-browser_1.3.4_arm64.deb</code></td><td>2,353,860 bytes (~2.35 MB)</td><td><code class="hash">718058cede6fce8e1be30675233ab74ff84a08558c3cb5874eb3cf50c3320cea</code></td></tr></table></div>
 <pre>sha256sum spectral-browser_1.3.4_amd64.deb</pre>
+<h3>Android</h3>
+<p class="note">Download from the <a href="https://github.com/vmphil/spectral-browser/releases/tag/android-v1.4.2"><b>Android 1.4.2 GitHub Release</b></a>: <a href="https://github.com/vmphil/spectral-browser/releases/download/android-v1.4.2/spectral-browser-1.4.2-android.apk">spectral-browser-1.4.2-android.apk</a>. If you installed an earlier debug APK, uninstall it first.</p>
+<div class="tw"><table><tr><th>File</th><th>Size</th><th>SHA-256</th></tr>
+<tr><td><code>spectral-browser-1.4.2-android.apk</code></td><td>15,599,050 bytes (~15.6 MB)</td><td><code class="hash">f4ede6aa0415db5706ff9517a4bc6ac2a4632d3e34df2b37f7c048cd1de6c276</code></td></tr></table></div>
 <h3>Previous versions</h3><div class="tw"><table><tr><th>File</th><th>Size</th><th>SHA-256</th></tr>
 <tr><td><code>spectral-browser_1.3.3_arm64.deb</code></td><td>2,351,008 bytes</td><td><code class="hash">9e7bf0e754f27853571e6c1bf6b890732ce95fa572576c3948babcfc79e46c0b</code></td></tr>
 <tr><td><code>spectral-browser_1.3.3_amd64.deb</code></td><td>2,752,352 bytes</td><td><code class="hash">9b3cc665b2d5f5eafe714b0b15ff5d1bcc2a6cda8031e40c35448638f384dfa7</code></td></tr>
@@ -82,6 +86,12 @@ sudo VERSION=1.3.4 ./packaging/build-arm64.sh   # arm64 package</pre>
 <tr><td><code>spectral-browser_1.1.0_amd64.deb</code></td><td>616,560 bytes</td><td><code class="hash">fcf9d00c36523c74c6935b671ba86e6aeb36e93c8a58af113735c0a24c94fae8</code></td></tr></table></div></section>
 <section id="changelog"><h2>Changelog</h2>
 <p>Full history is also in <a href="https://github.com/vmphil/spectral-browser/blob/main/CHANGELOG.md">CHANGELOG.md</a>.</p>
+<h3>Android 1.4.2 - 2026-11-04</h3>
+<h4>Changed</h4>
+<ul>
+<li><b>Library upkeep:</b> OkHttp 5.5.1, <code>androidx.webkit</code> 1.18 and other AndroidX updates; targetSdk 36 (Android 16).</li>
+<li><b>First signed release build.</b> Earlier 1.4.x APKs were debug builds. <b>If you installed one, uninstall it first</b> (<code>adb uninstall org.spectralbrowser</code> or from the phone); this clears its tabs and settings.</li>
+</ul>
 <h3>1.3.4 - 2026-11-02</h3>
 <h4>Security</h4>
 <ul>
