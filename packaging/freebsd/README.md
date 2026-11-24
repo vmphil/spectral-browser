@@ -25,9 +25,18 @@ Do not install `webkit2-gtk_40` or `webkit2-gtk_60`. Flavor 40 is the old 4.0 AP
 
 The Ghost Panel's active-connection list uses `sockstat` (and `ps` for the process tree). Linux still reads `/proc`. If `sockstat` cannot be run, that list stays empty and the rest of the panel still works.
 
+A prebuilt amd64 package is in the [v1.3.4-freebsd](https://github.com/vmphil/spectral-browser/releases/tag/v1.3.4-freebsd) release:
+
+- [spectral-browser-1.3.4.pkg](https://github.com/vmphil/spectral-browser/releases/download/v1.3.4-freebsd/spectral-browser-1.3.4.pkg)
+- SHA-256: `6a66c2264e7bc00074dda10d9765f23e6517161bfc7943aec6d99acc736db4ab`
+
+It is also committed at `packages/freebsd/spectral-browser-1.3.4.pkg`.
+
 ```sh
-pkg install gtk3 webkit2-gtk_41
-pkg add ./spectral-browser-1.3.4.pkg
+sudo pkg install gtk3 webkit2-gtk_41
+fetch https://github.com/vmphil/spectral-browser/releases/download/v1.3.4-freebsd/spectral-browser-1.3.4.pkg
+sudo pkg add ./spectral-browser-1.3.4.pkg
+spectral-browser
 ```
 
 ### Build
@@ -89,4 +98,4 @@ cd /usr/ports/www/spectral-browser
 make SPECTRAL_SRC=/path/to/spectral-browser package
 ```
 
-There is no distfile and no release tag. `build-pkg.sh` is the path used to produce `spectral-browser-1.3.4.pkg`.
+The prebuilt amd64 package is attached to the `v1.3.4-freebsd` release and is also in `packages/freebsd/`. `build-pkg.sh` is the path used to rebuild `spectral-browser-1.3.4.pkg`.

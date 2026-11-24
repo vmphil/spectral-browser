@@ -4,6 +4,8 @@ packaging/freebsd/stage/
 packaging/freebsd/out/
 *.deb
 *.pkg
+!packages/freebsd/spectral-browser-1.3.4.pkg
+!packages/freebsd/*.sha256
 *.apk
 *.AppImage
 *.o

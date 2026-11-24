@@ -186,10 +186,22 @@ Do not install `webkit2-gtk_40` or `webkit2-gtk_60`. Flavor 40 is the old 4.0 AP
 
 The Ghost Panel's active-connection list uses `sockstat` (and `ps` for the process tree) on FreeBSD. Linux still reads `/proc`. If `sockstat` cannot be run, that list stays empty and the rest of the panel still works.
 
+**Download**
+
+- Package: [spectral-browser-1.3.4.pkg](https://github.com/vmphil/spectral-browser/releases/download/v1.3.4-freebsd/spectral-browser-1.3.4.pkg) (2.5 MiB)
+- SHA-256: `6a66c2264e7bc00074dda10d9765f23e6517161bfc7943aec6d99acc736db4ab`
+- Checksum file: [spectral-browser-1.3.4.pkg.sha256](https://github.com/vmphil/spectral-browser/releases/download/v1.3.4-freebsd/spectral-browser-1.3.4.pkg.sha256)
+- Release: [v1.3.4-freebsd](https://github.com/vmphil/spectral-browser/releases/tag/v1.3.4-freebsd)
+
+The same file is also in the repository at [`packages/freebsd/spectral-browser-1.3.4.pkg`](packages/freebsd/spectral-browser-1.3.4.pkg).
+
 ```sh
-pkg install gtk3 webkit2-gtk_41
-pkg add ./spectral-browser-1.3.4.pkg
-spectral-browser --version
+sudo pkg install gtk3 webkit2-gtk_41
+fetch https://github.com/vmphil/spectral-browser/releases/download/v1.3.4-freebsd/spectral-browser-1.3.4.pkg
+# Confirm the hash matches:
+#   6a66c2264e7bc00074dda10d9765f23e6517161bfc7943aec6d99acc736db4ab
+sudo pkg add ./spectral-browser-1.3.4.pkg
+spectral-browser
 ```
 
 **Build** (only to compile the package on a FreeBSD machine):
