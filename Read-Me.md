@@ -165,19 +165,48 @@ Installed automatically by `apt` with the .deb:
 
 Exact names and minimum versions are filled in by `dpkg-shlibdeps` at build time. These names match Ubuntu 24.04 and Pop!_OS 24.04. Older releases that only have WebKit2GTK 4.0 won't work with 1.2.0 or later.
 
-To build from source you also need: Go 1.22+, gcc, `pkg-config`, `libgtk-3-dev`, and `libwebkit2gtk-4.1-dev`.
+To build from source on Linux you also need: Go 1.26+ (the version in `go.mod`), gcc, `pkg-config`, `libgtk-3-dev`, and `libwebkit2gtk-4.1-dev`.
 
-## FreeBSD 14.x
+### FreeBSD
 
-The desktop build is the same Go + GTK 3 + WebKit2GTK 4.1 program. FreeBSD packages use the 4.1 API flavor of `www/webkit2-gtk` (package `webkit2-gtk_41`) and `x11-toolkits/gtk30` (package `gtk3`). Bubblewrap and xdg-dbus-proxy are Linux sandbox tools; WebKit's bubblewrap sandbox is a no-op on FreeBSD, so they are not package dependencies. Details, the ports skeleton, and the package script are in `packaging/freebsd/`.
+Tested on FreeBSD 14.5-RELEASE amd64. The desktop program is the same Go + GTK 3 + WebKit2GTK 4.1 build. `pkg add` does not download dependencies, so install the runtime packages first.
 
-```bash
+**Runtime** (needed to install and run the `.pkg`):
+
+| Package | Port | Role |
+|---|---|---|
+| `gtk3` | `x11-toolkits/gtk30` | GTK 3 |
+| `webkit2-gtk_41` | `www/webkit2-gtk` flavor **41** | WebKit2GTK 4.1 (`webkit2gtk-4.1`). Pulls in `libsoup3` (`devel/libsoup3`), `glib` (`devel/glib20`), and WebKit's JavaScript engine |
+
+`pkg query` reports the WebKit origin as `www/webkit2-gtk`. The `_41` package name is the flavor.
+
+Do not install `webkit2-gtk_40` or `webkit2-gtk_60`. Flavor 40 is the old 4.0 API (libsoup 2). Flavor 60 is GTK 4. This browser needs flavor 41.
+
+`bubblewrap` and `xdg-dbus-proxy` are not FreeBSD dependencies. They exist for WebKit's Linux bubblewrap sandbox. That sandbox is a no-op in the FreeBSD WebKit port, so neither package is required.
+
+The Ghost Panel's active-connection list uses `sockstat` (and `ps` for the process tree) on FreeBSD. Linux still reads `/proc`. If `sockstat` cannot be run, that list stays empty and the rest of the panel still works.
+
+```sh
+pkg install gtk3 webkit2-gtk_41
+pkg add ./spectral-browser-1.3.4.pkg
+spectral-browser --version
+```
+
+**Build** (only to compile the package on a FreeBSD machine):
+
+| Package | Port | Role |
+|---|---|---|
+| `pkgconf` | `devel/pkgconf` | `pkg-config` |
+| `go` | `lang/go` | Go 1.26 or newer |
+| base `cc` | — | Clang, already in the base system |
+
+```sh
 pkg install gtk3 webkit2-gtk_41 pkgconf go
 sh packaging/freebsd/build-pkg.sh
 pkg add ./packaging/freebsd/out/spectral-browser-1.3.4.pkg
 ```
 
-`pkg add` does not fetch dependencies. Install `gtk3` and `webkit2-gtk_41` first (they pull in libsoup3, GLib, and the WebKit JavaScript engine). The package installs `/usr/local/bin/spectral-browser`, the web-process extension under `/usr/local/lib/spectral-browser/`, a menu entry, and hicolor icons. `spectral-browser --version` prints the version without opening a window.
+The package installs `/usr/local/bin/spectral-browser`, `/usr/local/lib/spectral-browser/libspectral-ext.so`, a menu entry, and hicolor icons. Opening a window needs X11 or Wayland. `--version` only checks that the binary and its libraries load. Build details and the optional ports skeleton are in `packaging/freebsd/`.
 
 ## Install
 

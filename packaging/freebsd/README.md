@@ -4,30 +4,50 @@ The desktop app is a Go program (module `github.com/philip/spectral-browser`, ve
 
 `build-pkg.sh` has to run on FreeBSD. It builds the binary, stages it under `/usr/local`, and runs `pkg create`.
 
+Tested on FreeBSD 14.5-RELEASE amd64.
+
 ## Dependencies
 
-| Linux (Ubuntu 24.04 .deb) | FreeBSD package | Port | Role |
-|---|---|---|---|
-| `libgtk-3-0t64`, `libgtk-3-dev` | `gtk3` | `x11-toolkits/gtk30` | GTK 3 |
-| `libwebkit2gtk-4.1-0`, `libwebkit2gtk-4.1-dev` | `webkit2-gtk_41` | `www/webkit2-gtk` flavor **41** (package origin reported by pkg is `www/webkit2-gtk`; the `_41` name is the GTK 3 + libsoup 3 / `webkit2gtk-4.1` flavor) | Web engine and web-process extension |
-| `libjavascriptcoregtk-4.1-0` | (inside `webkit2-gtk_41`) | same port | JavaScript engine |
-| `libsoup-3.0-0` | `libsoup3` | `devel/libsoup3` | HTTP library pulled in by the 4.1 flavor |
-| `libc6`, `libglib2.0-0t64` | base libc, `glib` (pulled in by `gtk3`) | `devel/glib20` | C runtime and GLib |
-| `pkg-config`, `gcc`, Go 1.22+ | `pkgconf`, base `cc` (Clang), `go` ≥ 1.26 | `devel/pkgconf`, `lang/go` | Build only |
-| `bubblewrap`, `xdg-dbus-proxy` | not required | — | Linux web-process sandbox. WebKit's bubblewrap sandbox is a no-op on FreeBSD |
+`pkg add` does not download dependencies. Install the runtime packages before adding the `.pkg`.
+
+### Runtime
+
+| Package | Port | Role |
+|---|---|---|
+| `gtk3` | `x11-toolkits/gtk30` | GTK 3 |
+| `webkit2-gtk_41` | `www/webkit2-gtk` flavor **41** | WebKit2GTK 4.1 (`webkit2gtk-4.1`). Pulls in `libsoup3` (`devel/libsoup3`), `glib` (`devel/glib20`), and the JavaScript engine |
+
+`pkg query` reports the WebKit origin as `www/webkit2-gtk`. The `_41` name is the flavor.
 
 Do not install `webkit2-gtk_40` or `webkit2-gtk_60`. Flavor 40 is the old 4.0 API (libsoup 2). Flavor 60 is GTK 4. This browser needs flavor 41.
 
-`pkg add` does not download dependencies. Install the runtime packages first; `gtk3` and `webkit2-gtk_41` pull in GLib, libsoup3, and JavaScriptCore.
+`bubblewrap` and `xdg-dbus-proxy` are not required. They are the Linux web-process sandbox tools. WebKit's bubblewrap sandbox is a no-op on FreeBSD.
 
-## Build and install
+The Ghost Panel's active-connection list uses `sockstat` (and `ps` for the process tree). Linux still reads `/proc`. If `sockstat` cannot be run, that list stays empty and the rest of the panel still works.
+
+```sh
+pkg install gtk3 webkit2-gtk_41
+pkg add ./spectral-browser-1.3.4.pkg
+```
+
+### Build
+
+| Package | Port | Role |
+|---|---|---|
+| `gtk3`, `webkit2-gtk_41` | see Runtime | Headers and libraries (`gtk+-3.0`, `webkit2gtk-4.1`) |
+| `pkgconf` | `devel/pkgconf` | `pkg-config` |
+| `go` | `lang/go` | Go 1.26 or newer |
+| base `cc` | — | Clang, already in the base system |
 
 ```sh
 pkg install gtk3 webkit2-gtk_41 pkgconf go
 sh packaging/freebsd/build-pkg.sh
 pkg add ./packaging/freebsd/out/spectral-browser-1.3.4.pkg
-spectral-browser --version
 ```
+
+Linux package names for the same stack (Ubuntu 24.04): `libgtk-3-0t64` / `libgtk-3-dev`, `libwebkit2gtk-4.1-0` / `libwebkit2gtk-4.1-dev`, `libsoup-3.0-0`, `libglib2.0-0t64`, plus `bubblewrap` and `xdg-dbus-proxy` for the sandbox. Those two sandbox packages are Linux-only.
+
+## Build and install
 
 The script rewrites dependency versions from the local package database into the manifest it passes to `pkg create` (the `+MANIFEST` in this directory is the checked-in template: name `spectral-browser`, version `1.3.4`, origin `www/spectral-browser`). `abi` follows `pkg config abi` (`FreeBSD:14:amd64`). The package `arch` field is the form official packages use (`freebsd:14:x86:64` on amd64).
 
