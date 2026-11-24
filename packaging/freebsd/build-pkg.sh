@@ -1,6 +1,8 @@
 #!/bin/sh
 # Build spectral-browser and pack it with pkg create.
-# Run this on FreeBSD 14.x. It is not a cross build.
+# Run this on FreeBSD 14.x or 15.x. It is not a cross build: the
+# package ABI comes from `pkg config abi` on this host (FreeBSD:15:amd64
+# or FreeBSD:14:amd64). A 15 package will not install on 14, and vice versa.
 #
 #   pkg install gtk3 webkit2-gtk_41 pkgconf go
 #   sh packaging/freebsd/build-pkg.sh
@@ -137,8 +139,8 @@ if pkg query '%n' libsoup3 >/dev/null 2>&1; then
 	add_dep libsoup3
 fi
 
-# abi is "FreeBSD:14:amd64". The package arch field uses a different CPU
-# token: amd64 is "x86:64" (see any package from the official repo).
+# abi is e.g. "FreeBSD:15:amd64" or "FreeBSD:14:amd64". The package arch
+# field uses a different CPU token: amd64 is "x86:64" (see any official pkg).
 ABI=$(pkg config abi)
 case "$ABI" in
 FreeBSD:*:amd64) arch_cpu="x86:64" ;;

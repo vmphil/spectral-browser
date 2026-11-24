@@ -169,7 +169,9 @@ To build from source on Linux you also need: Go 1.26+ (the version in `go.mod`),
 
 ### FreeBSD
 
-Tested on FreeBSD 14.5-RELEASE amd64. The desktop program is the same Go + GTK 3 + WebKit2GTK 4.1 build. `pkg add` does not download dependencies, so install the runtime packages first.
+The desktop program is the same Go + GTK 3 + WebKit2GTK 4.1 build. Packages are ABI-specific: a 15.x package will not install on 14.x, and a 14.x package will not install on 15.x. Run `freebsd-version` (or `pkg config abi`) and pick the matching download below. `pkg add` does not download dependencies, so install the runtime packages first.
+
+Tested on FreeBSD 15.1-RELEASE amd64 and FreeBSD 14.5-RELEASE amd64.
 
 **Runtime** (needed to install and run the `.pkg`):
 
@@ -188,12 +190,32 @@ The Ghost Panel's active-connection list uses `sockstat` (and `ps` for the proce
 
 **Download**
 
+Use `freebsd-version` to choose the package. 15.x (current, including 15.1) needs ABI `FreeBSD:15:amd64`. 14.x needs ABI `FreeBSD:14:amd64`.
+
+**FreeBSD 15 (ABI `FreeBSD:15:amd64`)** — current; use this on 15.1
+
+- Package: [spectral-browser-1.3.4-freebsd15.pkg](https://github.com/vmphil/spectral-browser/releases/download/v1.3.4-freebsd15/spectral-browser-1.3.4-freebsd15.pkg) (2.5 MiB)
+- SHA-256: `27fdb0f817fdf092d9752909f5beee92a57b1ac51876bb9dd735575bc99845d5`
+- Checksum file: [spectral-browser-1.3.4-freebsd15.pkg.sha256](https://github.com/vmphil/spectral-browser/releases/download/v1.3.4-freebsd15/spectral-browser-1.3.4-freebsd15.pkg.sha256)
+- Release: [v1.3.4-freebsd15](https://github.com/vmphil/spectral-browser/releases/tag/v1.3.4-freebsd15)
+- Also in the repository at [`packages/freebsd/spectral-browser-1.3.4-freebsd15.pkg`](packages/freebsd/spectral-browser-1.3.4-freebsd15.pkg)
+
+```sh
+sudo pkg install gtk3 webkit2-gtk_41
+fetch https://github.com/vmphil/spectral-browser/releases/download/v1.3.4-freebsd15/spectral-browser-1.3.4-freebsd15.pkg
+# Confirm the hash matches:
+#   27fdb0f817fdf092d9752909f5beee92a57b1ac51876bb9dd735575bc99845d5
+sudo pkg add ./spectral-browser-1.3.4-freebsd15.pkg
+spectral-browser
+```
+
+**FreeBSD 14 (ABI `FreeBSD:14:amd64`)** — for 14.x only (a 15.x system will reject this package)
+
 - Package: [spectral-browser-1.3.4.pkg](https://github.com/vmphil/spectral-browser/releases/download/v1.3.4-freebsd/spectral-browser-1.3.4.pkg) (2.5 MiB)
 - SHA-256: `6a66c2264e7bc00074dda10d9765f23e6517161bfc7943aec6d99acc736db4ab`
 - Checksum file: [spectral-browser-1.3.4.pkg.sha256](https://github.com/vmphil/spectral-browser/releases/download/v1.3.4-freebsd/spectral-browser-1.3.4.pkg.sha256)
 - Release: [v1.3.4-freebsd](https://github.com/vmphil/spectral-browser/releases/tag/v1.3.4-freebsd)
-
-The same file is also in the repository at [`packages/freebsd/spectral-browser-1.3.4.pkg`](packages/freebsd/spectral-browser-1.3.4.pkg).
+- Also in the repository at [`packages/freebsd/spectral-browser-1.3.4.pkg`](packages/freebsd/spectral-browser-1.3.4.pkg)
 
 ```sh
 sudo pkg install gtk3 webkit2-gtk_41
