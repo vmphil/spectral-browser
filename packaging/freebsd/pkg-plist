@@ -1,0 +1,7 @@
+bin/spectral-browser
+lib/spectral-browser/libspectral-ext.so
+share/applications/spectral-browser.desktop
+share/doc/spectral-browser/README.md
+share/icons/hicolor/256x256/apps/spectral-browser.png
+share/icons/hicolor/512x512/apps/spectral-browser.png
+share/pixmaps/spectral-browser.png

@@ -2,14 +2,15 @@ VERSION := 1.3.4
 BIN := bin/spectral-browser
 EXT := bin/ext/libspectral-ext.so
 WK := webkit2gtk-web-extension-4.1
+CC ?= cc
 
-.PHONY: build ext run fmt vet test clean deb blocklist
+.PHONY: build ext run fmt vet test clean deb pkg blocklist
 build: ext
 	go build -o $(BIN) .
 ext: $(EXT)
 $(EXT): ext/spectral-ext.c
 	mkdir -p bin/ext
-	gcc -shared -fPIC -O2 -Wall -o $@ $< $$(pkg-config --cflags --libs $(WK))
+	$(CC) -shared -fPIC -O2 -Wall -o $@ $< $$(pkg-config --cflags --libs $(WK))
 run: build
 	./$(BIN) --debug
 fmt:
@@ -26,3 +27,5 @@ blocklist:
 	  | go run ./cmd/genblocklist > blocklist/trackers.txt
 deb:
 	VERSION=$(VERSION) ./packaging/build-deb.sh
+pkg:
+	VERSION=$(VERSION) ./packaging/freebsd/build-pkg.sh

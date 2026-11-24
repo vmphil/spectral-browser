@@ -1,0 +1,9 @@
+Spectral Browser is a small privacy-minded web browser built on GTK 3 and
+WebKit2GTK 4.1. It is HTTPS-only, blocks third-party cookies and known
+trackers, keeps cookies only for sites you accept, and has a Ghost Panel
+(F8) that lists live connections, outgoing requests, and incoming responses.
+
+The supported way to build a package without the ports tree is
+packaging/freebsd/build-pkg.sh in the source tree.
+
+WWW: https://github.com/vmphil/spectral-browser

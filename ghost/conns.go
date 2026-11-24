@@ -6,8 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
-	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,33 +18,9 @@ type Conn struct {
 	Host, Remote, Proto, Process string
 }
 
-// Descendants returns pid and every process below it.
-func Descendants(pid int) map[int]string {
-	parent := map[int]int{}
-	names := map[int]string{}
-	ents, _ := os.ReadDir("/proc")
-	for _, e := range ents {
-		p, err := strconv.Atoi(e.Name())
-		if err != nil {
-			continue
-		}
-		b, err := os.ReadFile(filepath.Join("/proc", e.Name(), "stat"))
-		if err != nil {
-			continue
-		}
-		s := string(b)
-		r := strings.LastIndexByte(s, ')')
-		l := strings.IndexByte(s, '(')
-		if r < 0 || l < 0 {
-			continue
-		}
-		f := strings.Fields(s[r+1:])
-		if len(f) < 2 {
-			continue
-		}
-		pp, _ := strconv.Atoi(f[1])
-		parent[p], names[p] = pp, s[l+1:r]
-	}
+// descendantsFrom returns pid and every process below it.
+// parent maps pid to ppid; names maps pid to the process name.
+func descendantsFrom(pid int, parent map[int]int, names map[int]string) map[int]string {
 	out := map[int]string{pid: names[pid]}
 	for changed := true; changed; {
 		changed = false
@@ -59,19 +33,6 @@ func Descendants(pid int) map[int]string {
 		}
 	}
 	return out
-}
-
-func socketInodes(pid int) map[string]bool {
-	inodes := map[string]bool{}
-	dir := fmt.Sprintf("/proc/%d/fd", pid)
-	ents, _ := os.ReadDir(dir)
-	for _, e := range ents {
-		l, err := os.Readlink(filepath.Join(dir, e.Name()))
-		if err == nil && strings.HasPrefix(l, "socket:[") {
-			inodes[l[8:len(l)-1]] = true
-		}
-	}
-	return inodes
 }
 
 // parseAddr decodes a /proc/net/tcp "HEX:PORT" field.
@@ -95,63 +56,6 @@ func parseAddr(s string) (net.IP, int, error) {
 	return ip, int(port), err
 }
 
-type sock struct {
-	ip   net.IP
-	port int
-}
-
-// established maps socket inode -> remote for ESTABLISHED sockets in pid's netns.
-func established(pid int) map[string]sock {
-	m := map[string]sock{}
-	for _, f := range []string{"tcp", "tcp6"} {
-		fh, err := os.Open(fmt.Sprintf("/proc/%d/net/%s", pid, f))
-		if err != nil {
-			continue
-		}
-		sc := bufio.NewScanner(fh)
-		sc.Scan() // header
-		for sc.Scan() {
-			c := strings.Fields(sc.Text())
-			if len(c) < 10 || c[3] != "01" {
-				continue
-			}
-			ip, port, err := parseAddr(c[2])
-			if err == nil {
-				m[c[9]] = sock{ip, port}
-			}
-		}
-		fh.Close()
-	}
-	return m
-}
-
-// Scan lists established connections held by pid's process tree.
-func Scan(pid int) []Conn {
-	var conns []Conn
-	tables := map[string]map[string]sock{}
-	for p, name := range Descendants(pid) {
-		inodes := socketInodes(p)
-		if len(inodes) == 0 {
-			continue
-		}
-		ns, _ := os.Readlink(fmt.Sprintf("/proc/%d/ns/net", p))
-		t, ok := tables[ns]
-		if !ok {
-			t = established(p)
-			tables[ns] = t
-		}
-		for ino := range inodes {
-			s, ok := t[ino]
-			if !ok || s.ip.IsLoopback() {
-				continue
-			}
-			conns = append(conns, Conn{Remote: net.JoinHostPort(s.ip.String(), strconv.Itoa(s.port)),
-				Proto: proto(s.port), Process: name})
-		}
-	}
-	return conns
-}
-
 func proto(port int) string {
 	switch port {
 	case 443:
@@ -162,6 +66,113 @@ func proto(port int) string {
 		return "DNS-over-TLS"
 	}
 	return "TCP"
+}
+
+// parsePS reads "ps -o pid=,ppid=,comm=" output.
+func parsePS(text string) (parent map[int]int, names map[int]string) {
+	parent = map[int]int{}
+	names = map[int]string{}
+	sc := bufio.NewScanner(strings.NewReader(text))
+	for sc.Scan() {
+		f := strings.Fields(sc.Text())
+		if len(f) < 3 {
+			continue
+		}
+		pid, err1 := strconv.Atoi(f[0])
+		ppid, err2 := strconv.Atoi(f[1])
+		if err1 != nil || err2 != nil {
+			continue
+		}
+		parent[pid] = ppid
+		names[pid] = strings.Join(f[2:], " ")
+	}
+	return parent, names
+}
+
+func isTCPProto(s string) bool {
+	switch s {
+	case "tcp", "tcp4", "tcp6", "tcp46":
+		return true
+	}
+	return false
+}
+
+// parseSockAddr parses a sockstat address (1.2.3.4:443 or [2001:db8::1]:443).
+func parseSockAddr(s string) (string, int, bool) {
+	s = strings.TrimSpace(s)
+	if s == "" || s == "*:*" {
+		return "", 0, false
+	}
+	var host, portStr string
+	if strings.HasPrefix(s, "[") {
+		end := strings.LastIndex(s, "]:")
+		if end < 0 {
+			return "", 0, false
+		}
+		host = s[1:end]
+		portStr = s[end+2:]
+	} else {
+		i := strings.LastIndex(s, ":")
+		if i < 0 {
+			return "", 0, false
+		}
+		host = s[:i]
+		portStr = s[i+1:]
+	}
+	if host == "" || host == "*" {
+		return "", 0, false
+	}
+	if z := strings.IndexByte(host, '%'); z >= 0 {
+		host = host[:z]
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil || port < 0 || port > 65535 {
+		return "", 0, false
+	}
+	return host, port, true
+}
+
+// connsFromSockstat keeps established TCP sockets owned by procs.
+// text is the output of `sockstat -c -P tcp`.
+func connsFromSockstat(text string, procs map[int]string) []Conn {
+	var conns []Conn
+	sc := bufio.NewScanner(strings.NewReader(text))
+	for sc.Scan() {
+		f := strings.Fields(sc.Text())
+		protoIdx := -1
+		for i, field := range f {
+			if isTCPProto(field) {
+				protoIdx = i
+				break
+			}
+		}
+		// pid, fd, proto, local, foreign
+		if protoIdx < 2 || protoIdx+2 >= len(f) {
+			continue
+		}
+		pid, err := strconv.Atoi(f[protoIdx-2])
+		if err != nil {
+			continue
+		}
+		name, ok := procs[pid]
+		if !ok {
+			continue
+		}
+		ipStr, port, ok := parseSockAddr(f[protoIdx+2])
+		if !ok {
+			continue
+		}
+		ip := net.ParseIP(ipStr)
+		if ip == nil || ip.IsLoopback() {
+			continue
+		}
+		conns = append(conns, Conn{
+			Remote:  net.JoinHostPort(ip.String(), strconv.Itoa(port)),
+			Proto:   proto(port),
+			Process: name,
+		})
+	}
+	return conns
 }
 
 // Watcher periodically scans connections and names their remote IPs.

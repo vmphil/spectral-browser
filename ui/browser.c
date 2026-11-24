@@ -8,6 +8,12 @@
  * Downloads (DL) are app-wide and listed in one Downloads window. */
 #include <stdlib.h>
 #include <string.h>
+#ifdef __FreeBSD__
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#include <sys/user.h>
+#include <unistd.h>
+#endif
 #include <glib/gstdio.h>
 #include <gtk/gtk.h>
 #include <webkit2/webkit2.h>
@@ -1983,6 +1989,19 @@ static gboolean selftest_google(gpointer x) {
 }
 
 static long rss_kb(void) {
+#ifdef __FreeBSD__
+	/* No /proc/self/status here. kern.proc.pid reports RSS in pages. */
+	int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, (int)getpid()};
+	struct kinfo_proc kp;
+	size_t len = sizeof(kp);
+	long page_kb;
+	if (sysctl(mib, 4, &kp, &len, NULL, 0) != 0 || len < sizeof(kp) || kp.ki_rssize <= 0)
+		return -1;
+	page_kb = sysconf(_SC_PAGESIZE) / 1024;
+	if (page_kb < 1)
+		page_kb = 4;
+	return (long)kp.ki_rssize * page_kb;
+#else
 	char *txt = NULL;
 	long kb = -1;
 	if (g_file_get_contents("/proc/self/status", &txt, NULL, NULL)) {
@@ -1991,6 +2010,7 @@ static long rss_kb(void) {
 		g_free(txt);
 	}
 	return kb;
+#endif
 }
 
 static int store_rows(void) {

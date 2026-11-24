@@ -1,6 +1,9 @@
 dist/
 bin/
+packaging/freebsd/stage/
+packaging/freebsd/out/
 *.deb
+*.pkg
 *.apk
 *.AppImage
 *.o

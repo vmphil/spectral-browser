@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Spectral Browser
+GenericName=Web Browser
+Comment=Privacy-minded GTK/WebKit web browser
+Exec=/usr/local/bin/spectral-browser %u
+Icon=spectral-browser
+Terminal=false
+Categories=Network;WebBrowser;
+MimeType=x-scheme-handler/http;x-scheme-handler/https;text/html;
+StartupNotify=true

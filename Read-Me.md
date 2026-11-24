@@ -111,7 +111,7 @@ Press **F8** while the browser window is focused, or pick *Ghost Panel* from the
 
 Each list keeps the newest 300 rows, shows a count in its header, and has a **Clear** button. Rows are added in batches every half second so the panel doesn't slow pages down. Outgoing and Incoming rows start with the **Tab** number (`#3`; hover a tab to see its number). Tick **Current tab only** at the top to see just the tab you're on.
 
-1. **Active connections:** open TCP connections held by the browser's own processes, mainly WebKitNetworkProcess. The list is read from `/proc` every 1.5 s and shows host, remote IP:port, protocol (by port: HTTPS/HTTP), and process. Host names come from matching IPs to hosts the browser recently requested. A name starting with `~` came from reverse DNS instead, and `(unknown)` means neither worked.
+1. **Active connections:** open TCP connections held by the browser's own processes, mainly WebKitNetworkProcess. On Linux the list is read from `/proc` (process tree, socket inodes, and `/proc/net/tcp`). On FreeBSD the same list comes from `sockstat -c -P tcp`, limited to the browser's process tree from `ps`. If `sockstat` cannot be run, the list stays empty and the rest of the panel still works. Rows show host, remote IP:port, protocol (by port: HTTPS/HTTP), and process. Host names come from matching IPs to hosts the browser recently requested. A name starting with `~` came from reverse DNS instead, and `(unknown)` means neither worked.
 2. **Outgoing:** every request a page makes: time, flag, method, host, and type.
    - **Blocked** (red): a third-party request to a known tracker, ad or data-collection host. It was cancelled and never left your computer.
    - **Third-party** (orange): went to a different site than the page you're on and was allowed.
@@ -166,6 +166,18 @@ Installed automatically by `apt` with the .deb:
 Exact names and minimum versions are filled in by `dpkg-shlibdeps` at build time. These names match Ubuntu 24.04 and Pop!_OS 24.04. Older releases that only have WebKit2GTK 4.0 won't work with 1.2.0 or later.
 
 To build from source you also need: Go 1.22+, gcc, `pkg-config`, `libgtk-3-dev`, and `libwebkit2gtk-4.1-dev`.
+
+## FreeBSD 14.x
+
+The desktop build is the same Go + GTK 3 + WebKit2GTK 4.1 program. FreeBSD packages use the 4.1 API flavor of `www/webkit2-gtk` (package `webkit2-gtk_41`) and `x11-toolkits/gtk30` (package `gtk3`). Bubblewrap and xdg-dbus-proxy are Linux sandbox tools; WebKit's bubblewrap sandbox is a no-op on FreeBSD, so they are not package dependencies. Details, the ports skeleton, and the package script are in `packaging/freebsd/`.
+
+```bash
+pkg install gtk3 webkit2-gtk_41 pkgconf go
+sh packaging/freebsd/build-pkg.sh
+pkg add ./packaging/freebsd/out/spectral-browser-1.3.4.pkg
+```
+
+`pkg add` does not fetch dependencies. Install `gtk3` and `webkit2-gtk_41` first (they pull in libsoup3, GLib, and the WebKit JavaScript engine). The package installs `/usr/local/bin/spectral-browser`, the web-process extension under `/usr/local/lib/spectral-browser/`, a menu entry, and hicolor icons. `spectral-browser --version` prints the version without opening a window.
 
 ## Install
 

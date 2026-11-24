@@ -82,7 +82,7 @@ func Run(c *config.Config, o Options) {
 }
 
 // findExtDir locates libspectral-ext.so: $SPECTRAL_EXT_DIR, next to the
-// binary (bin/ext), or the installed /usr/lib/spectral-browser.
+// binary (bin/ext), the Linux package path, or the FreeBSD prefix.
 func findExtDir() string {
 	var dirs []string
 	if d := os.Getenv("SPECTRAL_EXT_DIR"); d != "" {
@@ -91,7 +91,10 @@ func findExtDir() string {
 	if exe, err := os.Executable(); err == nil {
 		dirs = append(dirs, filepath.Join(filepath.Dir(exe), "ext"))
 	}
-	dirs = append(dirs, "/usr/lib/spectral-browser")
+	dirs = append(dirs,
+		"/usr/lib/spectral-browser",       // Debian/Ubuntu package
+		"/usr/local/lib/spectral-browser", // FreeBSD package (LOCALBASE)
+	)
 	for _, d := range dirs {
 		if _, err := os.Stat(filepath.Join(d, "libspectral-ext.so")); err == nil {
 			return d
