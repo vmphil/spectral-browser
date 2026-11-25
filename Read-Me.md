@@ -4,9 +4,16 @@ A small, privacy-minded web browser for Linux, written in Go with GTK 3 and WebK
 
 ## Version
 
-**1.3.4** (2026-11-02)
+**1.3.5** (2026-11-24)
 
 ## Changes
+
+### 1.3.5 — 2026-11-24
+- **The main window is clamped to the monitor** and the web view has a modest size request, so a `WebKitWebView` natural height of 32767 pixels (GDK's maximum) cannot inflate the toplevel when the window manager does not cap it. See CHANGELOG.md.
+- **Settings → Reduce animations (saves CPU)** (off by default; `SPECTRAL_LOW_POWER=1` overrides) asks pages to reduce motion and turns off smooth scrolling. It does not disable GPU compositing.
+- Do **not** set `WEBKIT_DISABLE_COMPOSITING_MODE=1` or `WEBKIT_DISABLE_DMABUF_RENDERER=1` to save CPU: on an idle DuckDuckGo tab those have been seen to raise `WebKitWebProcess` from about 71% to 127%.
+- **Pause background tabs** (Settings, on by default) hides and mutes tabs you are not looking at, including when the window is minimized. `SPECTRAL_PAUSE_BG=0` turns this off.
+- **JS on / JS off** in the toolbar (or ☰ → *Block JavaScript on this site*) blocks or allows JavaScript for that site and reloads the tab. Settings → *Block JavaScript by default* flips the global default and uses an allow list instead. A visible DuckDuckGo tab that is still busy after 1.3.5 is the page's own JavaScript; block JS on that site, or use `about:blank` as the homepage, to drop `WebKitWebProcess` to near idle.
 
 ### 1.3.4 — 2026-11-02
 - **Security update.** Built with Go 1.27.3 and `golang.org/x/net` v0.62.0 (was Go 1.27.1 and v0.30.0), fixing HTTP/2, TLS, X.509 and HTML parser (XSS) vulnerabilities. `govulncheck` is clean. No feature changes. See CHANGELOG.md.
@@ -188,11 +195,30 @@ Do not install `webkit2-gtk_40` or `webkit2-gtk_60`. Flavor 40 is the old 4.0 AP
 
 The Ghost Panel's active-connection list uses `sockstat` (and `ps` for the process tree) on FreeBSD. Linux still reads `/proc`. If `sockstat` cannot be run, that list stays empty and the rest of the panel still works.
 
+**`WebKitWebProcess` CPU:** Spectral does not inject page scripts or run an extension timer in the web process. An idle tab that stays busy is usually the page itself (the default homepage is DuckDuckGo) on a slow CPU, and forcing the software compositor makes it worse. 1.3.5 also clamps the window to the monitor so a 32767-pixel-tall web view cannot be painted by mistake. Settings → *Pause background tabs* (on by default) stops hidden tabs; the toolbar **JS on/off** button (or Settings → *Block JavaScript by default*) is the way to quiet a visible busy page such as DuckDuckGo. Settings → *Reduce animations* (or `SPECTRAL_LOW_POWER=1`) asks pages to drop motion. To check, set the homepage to `about:blank`. Do not set `WEBKIT_DISABLE_COMPOSITING_MODE` or `WEBKIT_DISABLE_DMABUF_RENDERER` to save CPU. `$SPECTRAL_EXT_DIR` pointing at an empty directory disables the web-process extension (tracker blocking and the Ghost Panel outgoing list will be off).
+
 **Download**
 
 Use `freebsd-version` to choose the package. 15.x (current, including 15.1) needs ABI `FreeBSD:15:amd64`. 14.x needs ABI `FreeBSD:14:amd64`.
 
-**FreeBSD 15 (ABI `FreeBSD:15:amd64`)** — current; use this on 15.1
+**FreeBSD 15 (ABI `FreeBSD:15:amd64`)** — current; use this on 15.1. 1.3.5 is the CPU/window-size and reduce-animations update; use this rather than 1.3.4.
+
+- Package: [`packages/freebsd/spectral-browser-1.3.5-freebsd15.pkg`](packages/freebsd/spectral-browser-1.3.5-freebsd15.pkg) (2,596,812 bytes, ~2.5 MiB)
+- SHA-256: `1baec5af38e4354c90907c2bae8884b5956c394940fbc2c90fbcfe201fecb823`
+- Checksum file: [`packages/freebsd/spectral-browser-1.3.5-freebsd15.pkg.sha256`](packages/freebsd/spectral-browser-1.3.5-freebsd15.pkg.sha256)
+- Publish under a new tag `v1.3.5-freebsd15` (do not replace `v1.3.4`, `v1.3.4-freebsd`, or `v1.3.4-freebsd15`)
+
+```sh
+sudo pkg install gtk3 webkit2-gtk_41
+# After the package is in git or on the v1.3.5-freebsd15 release:
+# fetch https://github.com/vmphil/spectral-browser/releases/download/v1.3.5-freebsd15/spectral-browser-1.3.5-freebsd15.pkg
+# Confirm the hash matches:
+#   1baec5af38e4354c90907c2bae8884b5956c394940fbc2c90fbcfe201fecb823
+sudo pkg add ./spectral-browser-1.3.5-freebsd15.pkg
+spectral-browser --version   # spectral-browser 1.3.5
+```
+
+**FreeBSD 15, previous 1.3.4 package** (same ABI; lacks the 1.3.5 CPU/animation fixes)
 
 - Package: [spectral-browser-1.3.4-freebsd15.pkg](https://github.com/vmphil/spectral-browser/releases/download/v1.3.4-freebsd15/spectral-browser-1.3.4-freebsd15.pkg) (2.5 MiB)
 - SHA-256: `27fdb0f817fdf092d9752909f5beee92a57b1ac51876bb9dd735575bc99845d5`
@@ -237,7 +263,7 @@ spectral-browser
 ```sh
 pkg install gtk3 webkit2-gtk_41 pkgconf go
 sh packaging/freebsd/build-pkg.sh
-pkg add ./packaging/freebsd/out/spectral-browser-1.3.4.pkg
+pkg add ./packaging/freebsd/out/spectral-browser-1.3.5.pkg
 ```
 
 The package installs `/usr/local/bin/spectral-browser`, `/usr/local/lib/spectral-browser/libspectral-ext.so`, a menu entry, and hicolor icons. Opening a window needs X11 or Wayland. `--version` only checks that the binary and its libraries load. Build details and the optional ports skeleton are in `packaging/freebsd/`.
@@ -270,7 +296,7 @@ make deb        # dist/spectral-browser_1.3.4_amd64.deb
 
 ## Troubleshooting
 
-- Pages blank: `WEBKIT_DISABLE_COMPOSITING_MODE=1 spectral-browser`
+- Pages blank: some GPUs need `WEBKIT_DISABLE_COMPOSITING_MODE=1 spectral-browser`. This can *raise* `WebKitWebProcess` CPU; unset it once the page paints, and do not use it as a CPU workaround.
 - A site broken by blocking: open the Ghost Panel and look for red **Blocked** rows. To let it keep cookies, click 🛡.
 - See the traffic in a terminal: `spectral-browser --debug`
 

@@ -46,7 +46,7 @@
 <li><b>amd64</b> (Pop!_OS / Ubuntu 24.04):<pre>sudo apt install ./spectral-browser_1.3.4_amd64.deb</pre></li>
 <li><b>arm64</b> (for example, PineTab2):<pre>sudo apt install ./spectral-browser_1.3.4_arm64.deb</pre></li></ol>
 <p>This upgrades older versions in place. Uninstall with <code>sudo apt remove spectral-browser</code>. Settings stay in <code>~/.config/spectral-browser/</code>, <code>~/.local/share/spectral-browser/</code> and <code>~/.cache/spectral-browser/</code>.</p>
-<h3>Troubleshooting</h3><ul><li>Blank pages: <code>WEBKIT_DISABLE_COMPOSITING_MODE=1 spectral-browser</code></li><li>See traffic in the terminal: <code>spectral-browser --debug</code></li></ul>
+<h3>Troubleshooting</h3><ul><li>Blank pages: some GPUs need <code>WEBKIT_DISABLE_COMPOSITING_MODE=1 spectral-browser</code>. That can raise <code>WebKitWebProcess</code> CPU; do not use it as a CPU workaround.</li><li>See traffic in the terminal: <code>spectral-browser --debug</code></li></ul>
 <h3>Build from source</h3><p>Requires Go 1.26 or newer (releases are built with Go 1.27.3) and the WebKit2GTK 4.1 / GTK 3 development packages. Uses the Makefile:</p>
 <pre>make build    # Go binary + bin/ext/libspectral-ext.so
 make run
@@ -91,6 +91,11 @@ sudo VERSION=1.3.4 ./packaging/build-arm64.sh   # arm64 package</pre>
 <ul>
 <li><b>Library upkeep:</b> OkHttp 5.5.1, <code>androidx.webkit</code> 1.18 and other AndroidX updates; targetSdk 36 (Android 16).</li>
 <li><b>First signed release build.</b> Earlier 1.4.x APKs were debug builds. <b>If you installed one, uninstall it first</b> (<code>adb uninstall org.spectralbrowser</code> or from the phone); this clears its tabs and settings.</li>
+</ul>
+<h3>1.3.5 - 2026-11-24</h3>
+<ul>
+<li>The main window is clamped to the monitor so a 32767-pixel-tall web view cannot keep <code>WebKitWebProcess</code> busy painting off-screen.</li>
+<li>Settings include <i>Pause background tabs</i> (on by default), a toolbar <i>JS on/off</i> button to block JavaScript on the current site, and optional <i>Reduce animations</i>. Do not set <code>WEBKIT_DISABLE_COMPOSITING_MODE</code> to save CPU.</li>
 </ul>
 <h3>1.3.4 - 2026-11-02</h3>
 <h4>Security</h4>

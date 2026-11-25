@@ -24,7 +24,7 @@ if [ -z "$VER" ]; then
 	echo "could not read Version from main.go" >&2
 	exit 1
 fi
-# "VERSION := 1.3.4" — the value is the last field on GNU and BSD make.
+# "VERSION := 1.3.5" — the value is the last field on GNU and BSD make.
 MKVER=$(awk '/^VERSION[[:space:]]*:?=/{ print $NF; exit }' Makefile | tr -d '[:space:]')
 if [ -n "$MKVER" ] && [ "$MKVER" != "$VER" ]; then
 	echo "version mismatch: main.go $VER, Makefile $MKVER" >&2

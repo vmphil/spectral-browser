@@ -2,6 +2,22 @@
 
 All notable changes to Spectral Browser. Newest first.
 
+## [1.3.5] - 2026-11-24
+
+### Fixed
+- **The main window is clamped to the monitor workarea** and the web view has a modest size request (it still expands to fill the window). `WebKitWebView` can advertise a natural height of 32767 pixels (GDK's maximum), which some window managers will honor and which then keeps `WebKitWebProcess` busy painting a huge surface.
+- **`$SPECTRAL_EXT_DIR` is honored exclusively** when set. An empty or missing directory disables the web-process extension instead of falling back to the packaged `libspectral-ext.so`.
+
+### Changed
+- **Settings → Reduce animations (saves CPU)** (off by default, or `SPECTRAL_LOW_POWER=1`) asks pages to reduce motion, injects a user style that short-circuits CSS animations, and turns off smooth scrolling. It does **not** disable GPU compositing. Forcing WebKit's software compositor (`hardware-acceleration-policy` NEVER, or `WEBKIT_DISABLE_COMPOSITING_MODE=1` / `WEBKIT_DISABLE_DMABUF_RENDERER=1`) has been measured to *raise* `WebKitWebProcess` CPU on an idle tab.
+
+### Changed
+- **Settings → Pause background tabs** (on by default; `SPECTRAL_PAUSE_BG=0` or `1` overrides) hides and mutes the WebKit view when a tab is not visible, including when the window is minimized, so page timers and `requestAnimationFrame` should throttle. Turn it off if a hidden tab must keep running (for example background audio).
+- **Block JavaScript on this site** from the toolbar **JS on/off** button or ☰. The choice is stored per site (eTLD+1). Settings also has **Block JavaScript by default**, with a matching allow list. Changing either reloads tabs whose JavaScript state changed.
+
+### Notes
+- Spectral does not inject page scripts, the C extension has no timers, and `evaluate_javascript` is self-test only. After the window-size fix, remaining CPU on a quiet *visible* tab is almost always the page itself (for example the default DuckDuckGo homepage). `about:blank` or blocking JavaScript on that site should sit near idle. Do not set the `WEBKIT_DISABLE_*` variables as a CPU workaround.
+
 ## [Android 1.4.2] - 2026-11-04
 
 ### Changed

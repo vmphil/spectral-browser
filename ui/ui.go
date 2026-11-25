@@ -18,12 +18,15 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 	"unsafe"
 
 	"github.com/philip/spectral-browser/blocklist"
 	"github.com/philip/spectral-browser/config"
 	"github.com/philip/spectral-browser/ghost"
+
+	"golang.org/x/net/publicsuffix"
 )
 
 // Options control startup.
@@ -70,6 +73,9 @@ func Run(c *config.Config, o Options) {
 	if first == "" {
 		first = cfg.Home
 	}
+	if cfg.LowPowerGraphicsEnabled() {
+		log.Print("graphics: reduce-animations mode on (smooth scrolling off, pages asked to reduce motion). GPU compositing stays on. Uncheck Settings → Reduce animations or set SPECTRAL_LOW_POWER=0 to turn this off.")
+	}
 	u := C.CString(first)
 	defer C.free(unsafe.Pointer(u))
 	C.sb_run(u, cbool(o.Ghost))
@@ -83,11 +89,16 @@ func Run(c *config.Config, o Options) {
 
 // findExtDir locates libspectral-ext.so: $SPECTRAL_EXT_DIR, next to the
 // binary (bin/ext), the Linux package path, or the FreeBSD prefix.
+// If SPECTRAL_EXT_DIR is set, only that directory is used (an empty or
+// missing dir disables the extension; there is no fallback).
 func findExtDir() string {
-	var dirs []string
 	if d := os.Getenv("SPECTRAL_EXT_DIR"); d != "" {
-		dirs = append(dirs, d)
+		if _, err := os.Stat(filepath.Join(d, "libspectral-ext.so")); err == nil {
+			return d
+		}
+		return ""
 	}
+	dirs := []string{}
 	if exe, err := os.Executable(); err == nil {
 		dirs = append(dirs, filepath.Join(filepath.Dir(exe), "ext"))
 	}
@@ -144,13 +155,18 @@ func goExtDir() *C.char { return cstr(extDir) }
 func goBlocklistPath() *C.char { return cstr(blockPath) }
 
 //export goSaveSettings
-func goSaveSettings(home *C.char, dark, ask, clearExit C.int, dlDir *C.char) {
+func goSaveSettings(home *C.char, dark, ask, clearExit C.int, dlDir *C.char, lowPower, pauseBg, jsBlockDefault C.int) {
 	cfg.ClearCookiesOnExit = clearExit != 0
 	if h := NormalizeURL(C.GoString(home)); h != "" {
 		cfg.Home = h
 	}
 	cfg.DarkMode = dark != 0
 	cfg.AskDownload = ask != 0
+	v := lowPower != 0
+	cfg.LowPowerGraphics = &v
+	p := pauseBg != 0
+	cfg.PauseBackgroundTabs = &p
+	cfg.JSBlockDefault = jsBlockDefault != 0
 	if d := C.GoString(dlDir); d != "" {
 		if d == xdgDownloadDir() {
 			d = "" // follow the XDG folder if it ever moves
@@ -158,6 +174,49 @@ func goSaveSettings(home *C.char, dark, ask, clearExit C.int, dlDir *C.char) {
 		cfg.DownloadDir = d
 	}
 	save()
+}
+
+//export goLowPowerGraphics
+func goLowPowerGraphics() C.int { return cbool(cfg.LowPowerGraphicsEnabled()) }
+
+//export goPauseBackgroundTabs
+func goPauseBackgroundTabs() C.int { return cbool(cfg.PauseBackgroundTabsEnabled()) }
+
+//export goJSBlockDefault
+func goJSBlockDefault() C.int { return cbool(cfg.JSBlockDefault) }
+
+// jsSite is the registrable domain used for the JS allow/block lists.
+// Unlike Site(), it does not merge Google's properties into one site.
+func jsSite(host string) string {
+	host = strings.ToLower(strings.TrimSpace(host))
+	if host == "" {
+		return ""
+	}
+	s, err := publicsuffix.EffectiveTLDPlusOne(host)
+	if err != nil {
+		return host
+	}
+	return s
+}
+
+//export goJSEnabled
+func goJSEnabled(host *C.char) C.int { return cbool(cfg.JSEnabled(C.GoString(host))) }
+
+//export goToggleJS
+func goToggleJS(host *C.char) C.int {
+	h := jsSite(C.GoString(host))
+	if h == "" {
+		h = strings.ToLower(strings.TrimSpace(C.GoString(host)))
+	}
+	if h == "" {
+		return cbool(cfg.JSEnabled(""))
+	}
+	on := cfg.ToggleJS(h)
+	save()
+	if opts.Debug {
+		log.Printf("[js] %s enabled=%v (default-block=%v)", h, on, cfg.JSBlockDefault)
+	}
+	return cbool(on)
 }
 
 //export goSameSite

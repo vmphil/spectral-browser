@@ -42,7 +42,7 @@ typedef struct {
 } Tab;
 
 struct Win {
-	GtkWidget *win, *nb, *entry, *star, *shield, *favbar, *paned, *panel, *only_tab;
+	GtkWidget *win, *nb, *entry, *star, *shield, *jsbtn, *jsitem, *favbar, *paned, *panel, *only_tab;
 	GtkWidget *hconn, *hout, *hin;
 	GtkTreeModel *filt[3];
 	GtkWidget *dlbar, *dl_label, *dl_progress, *dl_open, *dl_folder;
@@ -86,6 +86,13 @@ static Tab *new_tab(Win *w, WebKitWebView *related, const char *uri, gboolean fo
 static void close_tab(Tab *t);
 static void rebuild_favs(void);
 static void refresh_buttons(Win *w);
+static int n_tabs(Win *w);
+static Tab *nth_tab(Win *w, int i);
+static const char *tab_uri(Tab *t);
+static void apply_js(Tab *t, const char *uri);
+static void sync_window_pauses(Win *w);
+static void sync_all_pauses(void);
+static void apply_js_all_and_reload(void);
 static void update_filter(gboolean reload);
 static void purge_cookies(gboolean quit);
 static void show_downloads(void);
@@ -152,6 +159,132 @@ static void set_bool(GObject *o, const char *name, gboolean v) {
 	if (g_object_class_find_property(G_OBJECT_GET_CLASS(o), name)) g_object_set(o, name, v, NULL);
 }
 
+/* Low-power mode does not disable GPU compositing: forcing the software
+ * compositor (hardware-acceleration-policy NEVER, or the WEBKIT_DISABLE_*
+ * env vars) has been seen to raise WebKitWebProcess CPU. It only turns
+ * off smooth scrolling and asks pages to reduce motion. */
+static WebKitUserStyleSheet *motion_sheet;
+
+static WebKitUserStyleSheet *reduce_motion_sheet(void) {
+	if (!motion_sheet)
+		motion_sheet = webkit_user_style_sheet_new(
+			"*,*::before,*::after{"
+			"animation-duration:.001ms!important;"
+			"animation-iteration-count:1!important;"
+			"transition-duration:.001ms!important;"
+			"scroll-behavior:auto!important}",
+			WEBKIT_USER_CONTENT_INJECT_ALL_FRAMES,
+			WEBKIT_USER_STYLE_LEVEL_USER,
+			NULL, NULL);
+	return motion_sheet;
+}
+
+static void apply_graphics_settings(WebKitSettings *s) {
+	set_bool(G_OBJECT(s), "enable-smooth-scrolling", !goLowPowerGraphics());
+}
+
+static void apply_reduce_motion(void) {
+	gboolean low = goLowPowerGraphics();
+	GtkSettings *gs = gtk_settings_get_default();
+	if (gs) g_object_set(gs, "gtk-enable-animations", !low, NULL);
+	WebKitUserStyleSheet *sheet = reduce_motion_sheet();
+	for (GList *l = wins; l; l = l->next) {
+		Win *w = l->data;
+		if (!w || !w->ucm) continue;
+		webkit_user_content_manager_remove_style_sheet(w->ucm, sheet);
+		if (low) webkit_user_content_manager_add_style_sheet(w->ucm, sheet);
+	}
+}
+
+static void apply_graphics_all(void) {
+	for (GList *l = wins; l; l = l->next) {
+		Win *w = l->data;
+		if (!w) continue;
+		if (w->settings) apply_graphics_settings(w->settings);
+		for (int i = 0; i < n_tabs(w); i++) {
+			Tab *t = nth_tab(w, i);
+			if (t && t->view) apply_graphics_settings(webkit_web_view_get_settings(t->view));
+		}
+	}
+	apply_reduce_motion();
+}
+
+/* WebKitWebView's natural size can be huge (GDK's 32767 px cap). Without a
+ * size request override, that preferred height is propagated to the
+ * toplevel and the window grows to 1280x32767, which WebKit then has to
+ * layout and paint. */
+#define WIN_DEFAULT_W 1280
+#define WIN_DEFAULT_H 820
+
+static void monitor_workarea(GtkWindow *win, GdkRectangle *r) {
+	GdkDisplay *dpy = gtk_widget_get_display(GTK_WIDGET(win));
+	GdkMonitor *mon = NULL;
+	GdkWindow *gw = gtk_widget_get_window(GTK_WIDGET(win));
+	if (gw) mon = gdk_display_get_monitor_at_window(dpy, gw);
+	if (!mon && dpy && gdk_display_get_n_monitors(dpy) > 0)
+		mon = gdk_display_get_monitor(dpy, 0);
+	if (mon) {
+		gdk_monitor_get_workarea(mon, r);
+		if (r->width < 400) r->width = 400;
+		if (r->height < 300) r->height = 300;
+	} else {
+		r->x = r->y = 0;
+		r->width = WIN_DEFAULT_W;
+		r->height = WIN_DEFAULT_H;
+	}
+}
+
+static void apply_window_size_hints(GtkWindow *win) {
+	GdkRectangle r;
+	GdkGeometry geom = {0};
+	monitor_workarea(win, &r);
+	geom.min_width = 400;
+	geom.min_height = 300;
+	geom.max_width = r.width;
+	geom.max_height = r.height;
+	gtk_window_set_geometry_hints(win, NULL, &geom, (GdkWindowHints)(GDK_HINT_MIN_SIZE | GDK_HINT_MAX_SIZE));
+}
+
+static void clamp_window_to_monitor(GtkWindow *win) {
+	GdkRectangle r;
+	int w, h, nw, nh;
+	monitor_workarea(win, &r);
+	gtk_window_get_size(win, &w, &h);
+	nw = w < r.width ? w : r.width;
+	nh = h < r.height ? h : r.height;
+	if (nw < 400) nw = WIN_DEFAULT_W < r.width ? WIN_DEFAULT_W : r.width;
+	if (nh < 300) nh = WIN_DEFAULT_H < r.height ? WIN_DEFAULT_H : r.height;
+	if (nw != w || nh != h) gtk_window_resize(win, nw, nh);
+}
+
+static gboolean on_win_map(GtkWidget *widget, GdkEvent *e, gpointer data) {
+	(void)e;
+	GtkWindow *win = GTK_WINDOW(widget);
+	apply_window_size_hints(win);
+	clamp_window_to_monitor(win);
+	sync_window_pauses(data);
+	return FALSE;
+}
+
+static gboolean on_win_state(GtkWidget *widget, GdkEventWindowState *e, Win *w) {
+	(void)widget;
+	if (e->changed_mask & (GDK_WINDOW_STATE_ICONIFIED | GDK_WINDOW_STATE_WITHDRAWN))
+		sync_window_pauses(w);
+	return FALSE;
+}
+
+/* twm and some other WMs ignore max-size hints, and the web view is added
+ * after the first map. Re-clamp whenever the window grows past the monitor. */
+static gboolean on_win_configure(GtkWidget *widget, GdkEventConfigure *e, gpointer data) {
+	(void)data;
+	GdkRectangle r;
+	monitor_workarea(GTK_WINDOW(widget), &r);
+	if (e->width > r.width || e->height > r.height)
+		clamp_window_to_monitor(GTK_WINDOW(widget));
+	return FALSE;
+}
+
+
 static WebKitSettings *make_settings(void) {
 	WebKitSettings *s = webkit_settings_new();
 	GObject *o = G_OBJECT(s);
@@ -162,6 +295,7 @@ static WebKitSettings *make_settings(void) {
 	set_bool(o, "javascript-can-access-clipboard", FALSE);
 	set_bool(o, "javascript-can-open-windows-automatically", FALSE); /* pop-ups need a click */
 	set_bool(o, "enable-media-stream", TRUE); /* still gated by permission prompt */
+	apply_graphics_settings(s);
 	return s;
 }
 
@@ -202,9 +336,72 @@ static Win *any_win(void) {
 
 /* ---------- navigation ---------- */
 
+static gboolean window_is_hidden(Win *w) {
+	if (!w || !w->win || !gtk_widget_get_mapped(w->win)) return TRUE;
+	GdkWindow *gw = gtk_widget_get_window(w->win);
+	if (!gw) return FALSE;
+	return (gdk_window_get_state(gw) & (GDK_WINDOW_STATE_ICONIFIED | GDK_WINDOW_STATE_WITHDRAWN)) != 0;
+}
+
+static void set_tab_paused(Tab *t, gboolean pause) {
+	if (!t || !t->view) return;
+	if (pause) {
+		webkit_web_view_set_is_muted(t->view, TRUE);
+		gtk_widget_hide(GTK_WIDGET(t->view));
+	} else {
+		gtk_widget_show(GTK_WIDGET(t->view));
+		webkit_web_view_set_is_muted(t->view, FALSE);
+	}
+}
+
+static void sync_window_pauses(Win *w) {
+	if (!w || w->dead) return;
+	gboolean setting = goPauseBackgroundTabs();
+	gboolean hidden = window_is_hidden(w);
+	for (int i = 0; i < n_tabs(w); i++) {
+		Tab *t = nth_tab(w, i);
+		if (!t) continue;
+		set_tab_paused(t, setting && (!is_cur(t) || hidden));
+	}
+}
+
+static void sync_all_pauses(void) {
+	for (GList *l = wins; l; l = l->next)
+		sync_window_pauses(l->data);
+}
+
+static void apply_js(Tab *t, const char *uri) {
+	if (!t || !t->view) return;
+	if (!uri) uri = tab_uri(t);
+	char *host = goHostOf((char *)(uri ? uri : ""));
+	gboolean on = goJSEnabled(host);
+	WebKitSettings *s = webkit_web_view_get_settings(t->view);
+	webkit_settings_set_enable_javascript(s, on);
+	webkit_settings_set_enable_javascript_markup(s, on);
+	free(host);
+}
+
+static void apply_js_all_and_reload(void) {
+	for (GList *l = wins; l; l = l->next) {
+		Win *w = l->data;
+		if (!w) continue;
+		for (int i = 0; i < n_tabs(w); i++) {
+			Tab *t = nth_tab(w, i);
+			if (!t || !t->view) continue;
+			gboolean was = webkit_settings_get_enable_javascript(webkit_web_view_get_settings(t->view));
+			apply_js(t, tab_uri(t));
+			gboolean now = webkit_settings_get_enable_javascript(webkit_web_view_get_settings(t->view));
+			if (was != now) webkit_web_view_reload(t->view);
+		}
+	}
+}
+
 static void load(Tab *t, const char *in) {
 	char *u = goNormalizeURL((char *)in);
-	if (*u) webkit_web_view_load_uri(t->view, u);
+	if (*u) {
+		apply_js(t, u);
+		webkit_web_view_load_uri(t->view, u);
+	}
 	free(u);
 }
 
@@ -284,6 +481,7 @@ static void on_switch(GtkNotebook *nb, GtkWidget *page, guint num, Win *w) {
 	g_snprintf(w->tag, sizeof w->tag, "#%d", t->id);
 	refilter(w);
 	dbg("[tabs] active tab #%d (%d of %d)%s", t->id, (int)num + 1, n_tabs(w), w->priv ? " private" : "");
+	sync_window_pauses(w);
 }
 
 /* HTTPS-only: upgrade http:// top-level navigations unless allowed this session.
@@ -301,9 +499,11 @@ static gboolean on_nav_policy(WebKitWebView *v, WebKitPolicyDecision *d, WebKitP
 		return TRUE;
 	}
 	if (type != WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION) return FALSE;
+	apply_js(t, uri);
 	char *up = goUpgradeURL((char *)uri);
 	gboolean handled = FALSE;
 	if (*up) {
+		apply_js(t, up);
 		webkit_policy_decision_ignore(d);
 		webkit_web_view_load_uri(v, up);
 		handled = TRUE;
@@ -402,6 +602,7 @@ static gboolean on_tls(WebKitWebView *v, char *uri, GTlsCertificate *c, GTlsCert
 static void on_load_changed(WebKitWebView *v, WebKitLoadEvent e, Tab *t) {
 	switch (e) {
 	case WEBKIT_LOAD_STARTED:
+		apply_js(t, tab_uri(t));
 		gtk_widget_hide(t->info);
 		gtk_widget_show(t->spinner);
 		gtk_spinner_start(GTK_SPINNER(t->spinner));
@@ -1379,6 +1580,16 @@ static void on_shield(GtkButton *b, Win *w) {
 	free(host);
 }
 
+static void on_js_toggle(GtkWidget *b, Win *w) {
+	char *host = goHostOf((char *)cur_uri(w));
+	if (*host) {
+		goToggleJS(host);
+		apply_js_all_and_reload();
+		for (GList *l = wins; l; l = l->next) refresh_buttons(l->data);
+	}
+	free(host);
+}
+
 /* ---------- favorites ---------- */
 
 static void on_star(GtkButton *b, Win *w) {
@@ -1493,6 +1704,16 @@ static void refresh_buttons(Win *w) {
 	gtk_widget_set_tooltip_text(w->shield, tip);
 	gtk_widget_set_sensitive(w->shield, *host != 0);
 	g_free(tip);
+	if (w->jsbtn) {
+		gboolean js = !*host || goJSEnabled(host);
+		gtk_button_set_label(GTK_BUTTON(w->jsbtn), js ? "JS on" : "JS off");
+		char *jstip = *host ? g_strdup_printf(js ? "JavaScript is allowed on %s. Click to block it on this site and reload." :
+			"JavaScript is blocked on %s. Click to allow it on this site and reload.", host) :
+			g_strdup("No site loaded");
+		gtk_widget_set_tooltip_text(w->jsbtn, jstip);
+		gtk_widget_set_sensitive(w->jsbtn, *host != 0);
+		g_free(jstip);
+	}
 	free(host);
 }
 
@@ -1535,6 +1756,18 @@ static void on_settings(GtkMenuItem *m, Win *w) {
 	gtk_switch_set_active(GTK_SWITCH(clr), goClearOnExit());
 	gtk_widget_set_halign(clr, GTK_ALIGN_START);
 	gtk_widget_set_tooltip_text(clr, "Deletes all cookies, including sites you allowed, so you'll need to sign in again after a restart.");
+	GtkWidget *lowpwr = gtk_switch_new();
+	gtk_switch_set_active(GTK_SWITCH(lowpwr), goLowPowerGraphics());
+	gtk_widget_set_halign(lowpwr, GTK_ALIGN_START);
+	gtk_widget_set_tooltip_text(lowpwr, "Asks pages to reduce motion and turns off smooth scrolling, which can cut CPU on busy sites. Does not disable GPU compositing: forcing the software compositor (or WEBKIT_DISABLE_COMPOSITING_MODE / WEBKIT_DISABLE_DMABUF_RENDERER) can raise WebKitWebProcess CPU. Off by default. SPECTRAL_LOW_POWER=0 or 1 overrides this at startup. Reload the page to apply the style change.");
+	GtkWidget *pausebg = gtk_switch_new();
+	gtk_switch_set_active(GTK_SWITCH(pausebg), goPauseBackgroundTabs());
+	gtk_widget_set_halign(pausebg, GTK_ALIGN_START);
+	gtk_widget_set_tooltip_text(pausebg, "When a tab is not visible (you switched away, or the window is minimized), hide and mute its WebKit view so page timers and animations should stop. On by default. SPECTRAL_PAUSE_BG=0 or 1 overrides this at startup. Turn this off if a hidden tab must keep running (for example background audio).");
+	GtkWidget *jsdef = gtk_switch_new();
+	gtk_switch_set_active(GTK_SWITCH(jsdef), goJSBlockDefault());
+	gtk_widget_set_halign(jsdef, GTK_ALIGN_START);
+	gtk_widget_set_tooltip_text(jsdef, "Block JavaScript on every site unless you allow it with the JS toolbar button or ☰ → Allow JavaScript on this site. Sites you already blocked or allowed are kept. Tabs whose JavaScript state changes are reloaded when you save.");
 	GtkWidget *folder = gtk_file_chooser_button_new("Download folder", GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER);
 	char *dir = goDownloadFolder();
 	gtk_file_chooser_set_filename(GTK_FILE_CHOOSER(folder), dir);
@@ -1550,14 +1783,26 @@ static void on_settings(GtkMenuItem *m, Win *w) {
 	gtk_grid_attach(GTK_GRID(grid), folder, 1, 3, 1, 1);
 	gtk_grid_attach(GTK_GRID(grid), grid_label("Clear cookies when browser closes"), 0, 4, 1, 1);
 	gtk_grid_attach(GTK_GRID(grid), clr, 1, 4, 1, 1);
+	gtk_grid_attach(GTK_GRID(grid), grid_label("Reduce animations (saves CPU)"), 0, 5, 1, 1);
+	gtk_grid_attach(GTK_GRID(grid), lowpwr, 1, 5, 1, 1);
+	gtk_grid_attach(GTK_GRID(grid), grid_label("Pause background tabs"), 0, 6, 1, 1);
+	gtk_grid_attach(GTK_GRID(grid), pausebg, 1, 6, 1, 1);
+	gtk_grid_attach(GTK_GRID(grid), grid_label("Block JavaScript by default"), 0, 7, 1, 1);
+	gtk_grid_attach(GTK_GRID(grid), jsdef, 1, 7, 1, 1);
 	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dlg))), grid, TRUE, TRUE, 0);
 	gtk_widget_show_all(dlg);
 	if (gtk_dialog_run(GTK_DIALOG(dlg)) == GTK_RESPONSE_ACCEPT) {
 		char *f = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(folder));
 		goSaveSettings((char *)gtk_entry_get_text(GTK_ENTRY(home)), gtk_switch_get_active(GTK_SWITCH(dark)),
-			gtk_switch_get_active(GTK_SWITCH(ask)), gtk_switch_get_active(GTK_SWITCH(clr)), f ? f : "");
+			gtk_switch_get_active(GTK_SWITCH(ask)), gtk_switch_get_active(GTK_SWITCH(clr)), f ? f : "",
+			gtk_switch_get_active(GTK_SWITCH(lowpwr)), gtk_switch_get_active(GTK_SWITCH(pausebg)),
+			gtk_switch_get_active(GTK_SWITCH(jsdef)));
 		g_free(f);
 		apply_dark();
+		apply_graphics_all();
+		sync_all_pauses();
+		apply_js_all_and_reload();
+		for (GList *l = wins; l; l = l->next) refresh_buttons(l->data);
 	}
 	gtk_widget_destroy(dlg);
 }
@@ -1646,12 +1891,14 @@ static Tab *new_tab(Win *w, WebKitWebView *related, const char *uri, gboolean fo
 	Tab *t = g_new0(Tab, 1);
 	t->w = w;
 	t->id = ++tab_seq;
+	WebKitSettings *s = make_settings();
 	if (related)
 		t->view = WEBKIT_WEB_VIEW(g_object_new(WEBKIT_TYPE_WEB_VIEW, "related-view", related,
-			"settings", w->settings, "user-content-manager", w->ucm, NULL));
+			"settings", s, "user-content-manager", w->ucm, NULL));
 	else
 		t->view = WEBKIT_WEB_VIEW(g_object_new(WEBKIT_TYPE_WEB_VIEW, "web-context", w->priv ? priv_ctx : main_ctx,
-			"settings", w->settings, "user-content-manager", w->ucm, NULL));
+			"settings", s, "user-content-manager", w->ucm, NULL));
+	g_object_unref(s);
 
 	t->info = gtk_info_bar_new();
 	t->http_btn = gtk_info_bar_add_button(GTK_INFO_BAR(t->info), "Load over HTTP for this session", 1);
@@ -1663,6 +1910,12 @@ static Tab *new_tab(Win *w, WebKitWebView *related, const char *uri, gboolean fo
 	gtk_container_add(GTK_CONTAINER(gtk_info_bar_get_content_area(GTK_INFO_BAR(t->info))), t->info_label);
 	g_signal_connect(t->info, "response", G_CALLBACK(on_info), t);
 	gtk_widget_set_no_show_all(t->info, TRUE);
+	/* Keep the view from advertising a huge natural size (GDK's 32767
+	 * px cap) so the toplevel does not grow when the WM does not cap it.
+	 * The view still expands to fill the tab page. */
+	gtk_widget_set_size_request(GTK_WIDGET(t->view), 200, 200);
+	gtk_widget_set_hexpand(GTK_WIDGET(t->view), TRUE);
+	gtk_widget_set_vexpand(GTK_WIDGET(t->view), TRUE);
 	t->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
 	gtk_box_pack_start(GTK_BOX(t->page), t->info, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(t->page), GTK_WIDGET(t->view), TRUE, TRUE, 0);
@@ -1711,6 +1964,7 @@ static Tab *new_tab(Win *w, WebKitWebView *related, const char *uri, gboolean fo
 	dbg("[tabs] opened tab #%d at %d (%d tabs, %s window)%s%s", t->id, idx + 1, n_tabs(w), w->priv ? "private" : "normal",
 		uri ? " " : "", uri ? uri : "");
 	if (focus) gtk_notebook_set_current_page(GTK_NOTEBOOK(w->nb), idx);
+	sync_window_pauses(w);
 	if (uri && *uri) {
 		if (filter_ready) load(t, uri);
 		else t->pending = g_strdup(uri);
@@ -1791,10 +2045,21 @@ static GtkWidget *icon_button(const char *icon, const char *tip, GCallback cb, W
 	return b;
 }
 
-static void menu_item(GtkWidget *menu, const char *label, GCallback cb, Win *w) {
+static GtkWidget *menu_item(GtkWidget *menu, const char *label, GCallback cb, Win *w) {
 	GtkWidget *it = cb ? gtk_menu_item_new_with_label(label) : gtk_separator_menu_item_new();
 	if (cb) g_signal_connect(it, "activate", cb, w);
 	gtk_menu_shell_append(GTK_MENU_SHELL(menu), it);
+	return it;
+}
+
+static void on_menu_show(GtkWidget *menu, Win *w) {
+	char *host = goHostOf((char *)cur_uri(w));
+	const char *label = (*host && !goJSEnabled(host)) ? "Allow JavaScript on this site" : "Block JavaScript on this site";
+	if (w->jsitem) {
+		gtk_menu_item_set_label(GTK_MENU_ITEM(w->jsitem), label);
+		gtk_widget_set_sensitive(w->jsitem, *host != 0);
+	}
+	free(host);
 }
 
 static GtkWidget *downloads_bar(Win *w) {
@@ -1829,7 +2094,11 @@ static Win *make_win(gboolean priv, const char *uri, gboolean ghost) {
 	if (consent_filter) webkit_user_content_manager_add_filter(w->ucm, consent_filter);
 	w->settings = make_settings();
 	w->win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-	gtk_window_set_default_size(GTK_WINDOW(w->win), 1280, 820);
+	gtk_window_set_default_size(GTK_WINDOW(w->win), WIN_DEFAULT_W, WIN_DEFAULT_H);
+	apply_window_size_hints(GTK_WINDOW(w->win));
+	g_signal_connect(w->win, "map-event", G_CALLBACK(on_win_map), w);
+	g_signal_connect(w->win, "configure-event", G_CALLBACK(on_win_configure), w);
+	g_signal_connect(w->win, "window-state-event", G_CALLBACK(on_win_state), w);
 	gtk_window_set_title(GTK_WINDOW(w->win), priv ? "Private — Spectral Browser" : "Spectral Browser");
 	gtk_window_set_icon_name(GTK_WINDOW(w->win), "spectral-browser");
 
@@ -1840,6 +2109,8 @@ static Win *make_win(gboolean priv, const char *uri, gboolean ghost) {
 	g_signal_connect(w->star, "clicked", G_CALLBACK(on_star), w);
 	w->shield = gtk_button_new_with_label("🛡 Cookies off");
 	g_signal_connect(w->shield, "clicked", G_CALLBACK(on_shield), w);
+	w->jsbtn = gtk_button_new_with_label("JS on");
+	g_signal_connect(w->jsbtn, "clicked", G_CALLBACK(on_js_toggle), w);
 
 	GtkWidget *menu = gtk_menu_new();
 	menu_item(menu, "New tab (Ctrl+T)", G_CALLBACK(on_new_tab), w);
@@ -1852,6 +2123,9 @@ static Win *make_win(gboolean priv, const char *uri, gboolean ghost) {
 	menu_item(menu, "Settings…", G_CALLBACK(on_settings), w);
 	menu_item(menu, "Clear browsing data…", G_CALLBACK(on_clear_data), w);
 	menu_item(menu, "Ghost Panel (F8)", G_CALLBACK(on_ghost_item), w);
+	menu_item(menu, NULL, NULL, w);
+	w->jsitem = menu_item(menu, "Block JavaScript on this site", G_CALLBACK(on_js_toggle), w);
+	g_signal_connect(menu, "show", G_CALLBACK(on_menu_show), w);
 	gtk_widget_show_all(menu);
 	GtkWidget *mb = gtk_menu_button_new();
 	gtk_button_set_image(GTK_BUTTON(mb), gtk_image_new_from_icon_name("open-menu-symbolic", GTK_ICON_SIZE_BUTTON));
@@ -1863,6 +2137,7 @@ static Win *make_win(gboolean priv, const char *uri, gboolean ghost) {
 	gtk_box_pack_start(GTK_BOX(bar), icon_button("view-refresh-symbolic", "Reload (Ctrl+R)", G_CALLBACK(on_reload), w), FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(bar), icon_button("go-home-symbolic", "Home", G_CALLBACK(on_home), w), FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(bar), w->shield, FALSE, FALSE, 0);
+	gtk_box_pack_start(GTK_BOX(bar), w->jsbtn, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(bar), w->entry, TRUE, TRUE, 0);
 	gtk_box_pack_start(GTK_BOX(bar), w->star, FALSE, FALSE, 0);
 	gtk_box_pack_start(GTK_BOX(bar), icon_button("folder-download-symbolic", "Downloads (Ctrl+Shift+Y)", G_CALLBACK(on_downloads), w), FALSE, FALSE, 0);
@@ -1896,9 +2171,12 @@ static Win *make_win(gboolean priv, const char *uri, gboolean ghost) {
 	g_signal_connect(w->win, "key-press-event", G_CALLBACK(on_key), w);
 
 	wins = g_list_append(wins, w);
+	apply_reduce_motion();
 	gtk_widget_show_all(w->win);
 	rebuild_favs();
 	new_tab(w, NULL, uri, TRUE, -1);
+	apply_window_size_hints(GTK_WINDOW(w->win));
+	clamp_window_to_monitor(GTK_WINDOW(w->win));
 	if (ghost) toggle_panel(w);
 	return w;
 }

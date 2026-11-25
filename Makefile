@@ -1,4 +1,4 @@
-VERSION := 1.3.4
+VERSION := 1.3.5
 BIN := bin/spectral-browser
 EXT := bin/ext/libspectral-ext.so
 WK := webkit2gtk-web-extension-4.1

@@ -1,6 +1,6 @@
 # Spectral Browser on FreeBSD 14.x and 15.x
 
-The desktop app is a Go program (module `github.com/philip/spectral-browser`, version **1.3.4**) with a GTK 3 UI and a WebKit2GTK 4.1 web view. The small C web-process extension (`ext/spectral-ext.c`) is built as `libspectral-ext.so`. The Android app is not part of this package.
+The desktop app is a Go program (module `github.com/philip/spectral-browser`, version **1.3.5**) with a GTK 3 UI and a WebKit2GTK 4.1 web view. The small C web-process extension (`ext/spectral-ext.c`) is built as `libspectral-ext.so`. The Android app is not part of this package.
 
 `build-pkg.sh` has to run on FreeBSD (14.x or 15.x). It is not a cross build: the package ABI is taken from `pkg config abi` on the build host, so a 15.x machine produces `FreeBSD:15:amd64` and a 14.x machine produces `FreeBSD:14:amd64`. Those packages are not interchangeable. Use `freebsd-version` to pick the right prebuilt file.
 
@@ -29,7 +29,20 @@ The Ghost Panel's active-connection list uses `sockstat` (and `ps` for the proce
 
 Prebuilt amd64 packages (use `freebsd-version` to pick one):
 
-**FreeBSD 15** (ABI `FreeBSD:15:amd64`), [v1.3.4-freebsd15](https://github.com/vmphil/spectral-browser/releases/tag/v1.3.4-freebsd15) release:
+**FreeBSD 15, 1.3.5** (ABI `FreeBSD:15:amd64`) — current; publish as `v1.3.5-freebsd15` (do not replace earlier tags):
+
+- [`packages/freebsd/spectral-browser-1.3.5-freebsd15.pkg`](../../packages/freebsd/spectral-browser-1.3.5-freebsd15.pkg)
+- SHA-256: `1baec5af38e4354c90907c2bae8884b5956c394940fbc2c90fbcfe201fecb823`
+
+```sh
+sudo pkg install gtk3 webkit2-gtk_41
+# After the v1.3.5-freebsd15 release exists:
+# fetch https://github.com/vmphil/spectral-browser/releases/download/v1.3.5-freebsd15/spectral-browser-1.3.5-freebsd15.pkg
+sudo pkg add ./spectral-browser-1.3.5-freebsd15.pkg
+spectral-browser --version
+```
+
+**FreeBSD 15, previous 1.3.4 package**, [v1.3.4-freebsd15](https://github.com/vmphil/spectral-browser/releases/tag/v1.3.4-freebsd15) release:
 
 - [spectral-browser-1.3.4-freebsd15.pkg](https://github.com/vmphil/spectral-browser/releases/download/v1.3.4-freebsd15/spectral-browser-1.3.4-freebsd15.pkg)
 - SHA-256: `27fdb0f817fdf092d9752909f5beee92a57b1ac51876bb9dd735575bc99845d5`
@@ -67,14 +80,14 @@ spectral-browser
 ```sh
 pkg install gtk3 webkit2-gtk_41 pkgconf go
 sh packaging/freebsd/build-pkg.sh
-pkg add ./packaging/freebsd/out/spectral-browser-1.3.4.pkg
+pkg add ./packaging/freebsd/out/spectral-browser-1.3.5.pkg
 ```
 
 Linux package names for the same stack (Ubuntu 24.04): `libgtk-3-0t64` / `libgtk-3-dev`, `libwebkit2gtk-4.1-0` / `libwebkit2gtk-4.1-dev`, `libsoup-3.0-0`, `libglib2.0-0t64`, plus `bubblewrap` and `xdg-dbus-proxy` for the sandbox. Those two sandbox packages are Linux-only.
 
 ## Build and install
 
-The script rewrites dependency versions from the local package database into the manifest it passes to `pkg create` (the `+MANIFEST` in this directory is the checked-in template: name `spectral-browser`, version `1.3.4`, origin `www/spectral-browser`). `abi` follows `pkg config abi` on the build host (`FreeBSD:15:amd64` on 15.x, `FreeBSD:14:amd64` on 14.x). The package `arch` field is the form official packages use (`freebsd:15:x86:64` or `freebsd:14:x86:64` on amd64).
+The script rewrites dependency versions from the local package database into the manifest it passes to `pkg create` (the `+MANIFEST` in this directory is the checked-in template: name `spectral-browser`, version `1.3.5`, origin `www/spectral-browser`). `abi` follows `pkg config abi` on the build host (`FreeBSD:15:amd64` on 15.x, `FreeBSD:14:amd64` on 14.x). The package `arch` field is the form official packages use (`freebsd:15:x86:64` or `freebsd:14:x86:64` on amd64).
 
 `pkg create -M +MANIFEST` alone does not pack files: on pkg 2.9 that flag stores only the metadata unless the manifest already lists each file with pkg's checksum. The script uses the from-scratch form, a metadata directory containing `+MANIFEST` plus `pkg-plist`:
 
@@ -114,4 +127,4 @@ cd /usr/ports/www/spectral-browser
 make SPECTRAL_SRC=/path/to/spectral-browser package
 ```
 
-Prebuilt amd64 packages are attached to the `v1.3.4-freebsd15` (FreeBSD 15) and `v1.3.4-freebsd` (FreeBSD 14) releases, and are also in `packages/freebsd/`. `build-pkg.sh` is the path used to rebuild the package; run it on the same major version you want the `.pkg` to install on.
+Prebuilt 1.3.4 amd64 packages are attached to the `v1.3.4-freebsd15` (FreeBSD 15) and `v1.3.4-freebsd` (FreeBSD 14) releases, and are also in `packages/freebsd/`. The 1.3.5 FreeBSD 15 package lives alongside them as `packages/freebsd/spectral-browser-1.3.5-freebsd15.pkg` once built. `build-pkg.sh` is the path used to rebuild the package; run it on the same major version you want the `.pkg` to install on.

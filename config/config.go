@@ -31,7 +31,27 @@ type Config struct {
 	// ClearCookiesOnExit deletes every cookie (accepted sites too) when the
 	// browser closes and again at start, in case it was killed.
 	ClearCookiesOnExit bool `json:"clear_cookies_on_exit"`
-	path               string
+	// LowPowerGraphics, when true, asks pages to reduce motion and turns
+	// off smooth scrolling. It does not disable GPU compositing: forcing
+	// the software compositor (including WEBKIT_DISABLE_COMPOSITING_MODE /
+	// WEBKIT_DISABLE_DMABUF_RENDERER) has been seen to raise
+	// WebKitWebProcess CPU. Off by default. SPECTRAL_LOW_POWER=0 or 1
+	// overrides the saved value. nil means off.
+	LowPowerGraphics *bool `json:"low_power_graphics,omitempty"`
+	// PauseBackgroundTabs hides and mutes WebKit views for tabs that are
+	// not visible (and when the window is minimized) so timers and rAF
+	// should throttle. On by default. SPECTRAL_PAUSE_BG=0 or 1 overrides.
+	// nil means the default (on).
+	PauseBackgroundTabs *bool `json:"pause_background_tabs,omitempty"`
+	// JSBlockDefault, when true, blocks JavaScript on every site unless
+	// the host is in JSAllowed. When false (the default), JavaScript runs
+	// unless the host is in JSBlocked.
+	JSBlockDefault bool `json:"js_block_default,omitempty"`
+	// JSBlocked is the per-site block list used when JSBlockDefault is false.
+	JSBlocked []string `json:"js_blocked,omitempty"`
+	// JSAllowed is the per-site allow list used when JSBlockDefault is true.
+	JSAllowed []string `json:"js_allowed,omitempty"`
+	path      string
 }
 
 // Default returns the built-in configuration.
@@ -163,4 +183,124 @@ func (c *Config) SetCookiesAllowed(host string, on bool) {
 	if on {
 		c.CookieSites = append(c.CookieSites, host)
 	}
+}
+
+// LowPowerGraphicsDefault is false on every platform. The setting is
+// opt-in reduce-motion / no smooth scrolling, not a software compositor.
+func LowPowerGraphicsDefault() bool {
+	return false
+}
+
+// envLowPower reports the SPECTRAL_LOW_POWER override, if set.
+func envLowPower() (on bool, set bool) {
+	v := strings.TrimSpace(os.Getenv("SPECTRAL_LOW_POWER"))
+	if v == "" {
+		return false, false
+	}
+	switch strings.ToLower(v) {
+	case "0", "false", "off", "no":
+		return false, true
+	default:
+		return true, true
+	}
+}
+
+// LowPowerGraphicsEnabled is the effective low-power graphics setting:
+// SPECTRAL_LOW_POWER, then the saved config, then the platform default.
+func (c *Config) LowPowerGraphicsEnabled() bool {
+	if on, set := envLowPower(); set {
+		return on
+	}
+	if c != nil && c.LowPowerGraphics != nil {
+		return *c.LowPowerGraphics
+	}
+	return LowPowerGraphicsDefault()
+}
+
+// PauseBackgroundTabsDefault is true on every platform: hidden tabs
+// should not keep burning CPU.
+func PauseBackgroundTabsDefault() bool {
+	return true
+}
+
+func envPauseBackground() (on bool, set bool) {
+	v := strings.TrimSpace(os.Getenv("SPECTRAL_PAUSE_BG"))
+	if v == "" {
+		return false, false
+	}
+	switch strings.ToLower(v) {
+	case "0", "false", "off", "no":
+		return false, true
+	default:
+		return true, true
+	}
+}
+
+// PauseBackgroundTabsEnabled is the effective setting: SPECTRAL_PAUSE_BG,
+// then the saved config, then on.
+func (c *Config) PauseBackgroundTabsEnabled() bool {
+	if on, set := envPauseBackground(); set {
+		return on
+	}
+	if c != nil && c.PauseBackgroundTabs != nil {
+		return *c.PauseBackgroundTabs
+	}
+	return PauseBackgroundTabsDefault()
+}
+
+func hostListed(list []string, host string) bool {
+	host = strings.ToLower(strings.TrimSpace(host))
+	if host == "" {
+		return false
+	}
+	for _, s := range list {
+		s = strings.ToLower(strings.TrimSpace(s))
+		if s != "" && (host == s || strings.HasSuffix(host, "."+s)) {
+			return true
+		}
+	}
+	return false
+}
+
+func setHostListed(list *[]string, host string, on bool) {
+	host = strings.ToLower(strings.TrimSpace(host))
+	*list = slices.DeleteFunc(*list, func(s string) bool {
+		s = strings.ToLower(strings.TrimSpace(s))
+		return s == host || (host != "" && (strings.HasSuffix(host, "."+s) || strings.HasSuffix(s, "."+host)))
+	})
+	if on && host != "" {
+		*list = append(*list, host)
+	}
+}
+
+// JSEnabled reports whether JavaScript should run for host. An empty
+// host (about:blank) follows the global default: allowed unless
+// JSBlockDefault is on.
+func (c *Config) JSEnabled(host string) bool {
+	if c == nil {
+		return true
+	}
+	if c.JSBlockDefault {
+		if host == "" {
+			return false
+		}
+		return hostListed(c.JSAllowed, host)
+	}
+	if host == "" {
+		return true
+	}
+	return !hostListed(c.JSBlocked, host)
+}
+
+// ToggleJS flips JavaScript for host and returns the new enabled state.
+// host should already be the site the caller wants stored (eTLD+1).
+func (c *Config) ToggleJS(host string) bool {
+	host = strings.ToLower(strings.TrimSpace(host))
+	on := !c.JSEnabled(host)
+	if c.JSBlockDefault {
+		setHostListed(&c.JSAllowed, host, on)
+	} else {
+		setHostListed(&c.JSBlocked, host, !on)
+	}
+	return on
 }
